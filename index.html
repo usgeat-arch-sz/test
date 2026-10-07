@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export Quote Calculator</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1b2333;
+    --muted: #6b7489;
+    --border: #dfe4ee;
+    --accent: #2563eb;
+    --accent-soft: #e8f0ff;
+    --green: #0f9d6b;
+    --green-soft: #e4f6ef;
+    --warn: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420;
+      --card: #181f2f;
+      --text: #e8ecf5;
+      --muted: #98a2b8;
+      --border: #2a3350;
+      --accent: #6b9bff;
+      --accent-soft: #1c2a4d;
+      --green: #3ddc97;
+      --green-soft: #12302a;
+      --warn: #ff8a7a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 1px 3px rgba(20, 30, 60, .06);
+  }
+  .card h2 { font-size: 1rem; margin: 0 0 14px; }
+  .fields { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: .85rem; font-weight: 600; }
+  .input {
+    display: flex; align-items: center;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg); overflow: hidden;
+  }
+  .input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .input span { padding: 0 10px; color: var(--muted); font-size: .85rem; white-space: nowrap; }
+  input {
+    flex: 1; min-width: 0; width: 100%;
+    border: 0; outline: 0; background: transparent; color: var(--text);
+    font: inherit; padding: 10px 10px; /* 16px font avoids iOS zoom */
+  }
+  .hint { font-size: .75rem; color: var(--muted); }
+  .result {
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;
+    background: var(--accent-soft);
+  }
+  .result.cif { background: var(--green-soft); margin-bottom: 0; }
+  .result h3 { margin: 0 0 8px; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 2px 0; }
+  .row .k { color: var(--muted); font-size: .9rem; }
+  .big { font-size: 1.6rem; font-weight: 700; }
+  .result .big { color: var(--accent); }
+  .result.cif .big { color: var(--green); }
+  .total { font-size: 1.05rem; font-weight: 600; }
+  #error { color: var(--warn); font-size: .9rem; min-height: 1.3em; margin: 0 0 10px; }
+  .notes { font-size: .78rem; color: var(--muted); margin-top: 16px; }
+  .notes code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+  button {
+    margin-top: 14px; width: 100%; padding: 10px; font: inherit; font-weight: 600;
+    border: 1px solid var(--border); border-radius: 10px; background: transparent;
+    color: var(--text); cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Export Quote Calculator</h1>
+  <p class="sub">Convert RMB cost into FOB and CIF prices in USD.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Inputs</h2>
+      <div class="fields">
+        <div class="field">
+          <label for="cost">Unit cost</label>
+          <div class="input"><span>CNY</span><input id="cost" type="number" inputmode="decimal" min="0" step="any" value="50"></div>
+        </div>
+        <div class="field">
+          <label for="qty">Quantity</label>
+          <div class="input"><span>pcs</span><input id="qty" type="number" inputmode="numeric" min="1" step="1" value="1000"></div>
+        </div>
+        <div class="field">
+          <label for="rate">Exchange rate</label>
+          <div class="input"><span>CNY/USD</span><input id="rate" type="number" inputmode="decimal" min="0" step="any" value="7.20"></div>
+        </div>
+        <div class="field">
+          <label for="margin">Target profit margin</label>
+          <div class="input"><input id="margin" type="number" inputmode="decimal" min="0" max="99" step="any" value="20"><span>%</span></div>
+        </div>
+        <div class="field">
+          <label for="freight">Total freight</label>
+          <div class="input"><span>USD</span><input id="freight" type="number" inputmode="decimal" min="0" step="any" value="800"></div>
+        </div>
+        <div class="field">
+          <label for="ins">Insurance rate</label>
+          <div class="input"><input id="ins" type="number" inputmode="decimal" min="0" step="any" value="0.5"><span>%</span></div>
+        </div>
+      </div>
+      <button type="button" id="reset">Reset to defaults</button>
+      <p class="notes">
+        Margin is on selling price: <code>FOB = cost ÷ (1 − margin)</code>.
+        Insurance = 110% of CIF × rate, so <code>CIF = (FOB + freight) ÷ (1 − 1.1 × rate)</code>.
+        Freight is in USD, whole shipment.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Quote</h2>
+      <p id="error" role="alert"></p>
+      <div class="result">
+        <h3>FOB</h3>
+        <div class="row"><span class="k">Unit price</span><span class="big" id="fobUnit">—</span></div>
+        <div class="row"><span class="k">Total price</span><span class="total" id="fobTotal">—</span></div>
+      </div>
+      <div class="result cif">
+        <h3>CIF</h3>
+        <div class="row"><span class="k">Unit price</span><span class="big" id="cifUnit">—</span></div>
+        <div class="row"><span class="k">Total price</span><span class="total" id="cifTotal">—</span></div>
+        <div class="row"><span class="k">Freight (total)</span><span id="freightOut">—</span></div>
+        <div class="row"><span class="k">Insurance (total)</span><span id="insOut">—</span></div>
+      </div>
+      <div class="row" style="margin-top:14px"><span class="k">Total cost</span><span id="costTotal">—</span></div>
+      <div class="row"><span class="k">Profit (FOB)</span><span id="profit">—</span></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var ids = ["cost", "qty", "rate", "margin", "freight", "ins"];
+  var defaults = {};
+  ids.forEach(function (i) { defaults[i] = $(i).value; });
+
+  function usd(n, dp) {
+    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  }
+  function val(id) { return parseFloat($(id).value); }
+
+  function calc() {
+    var cost = val("cost"), qty = val("qty"), rate = val("rate");
+    var m = val("margin") / 100, freight = val("freight") || 0, ins = (val("ins") || 0) / 100;
+    var out = ["fobUnit", "fobTotal", "cifUnit", "cifTotal", "freightOut", "insOut", "costTotal", "profit"];
+    var err = "";
+
+    if (!(cost >= 0) || !(qty > 0) || !(rate > 0)) err = "Enter cost, quantity and exchange rate.";
+    else if (!(m >= 0 && m < 1)) err = "Profit margin must be between 0% and 99%.";
+    else if (freight < 0 || ins < 0) err = "Freight and insurance cannot be negative.";
+    else if (1 - 1.1 * ins <= 0) err = "Insurance rate is too high.";
+
+    $("error").textContent = err;
+    if (err) { out.forEach(function (o) { $(o).textContent = "—"; }); return; }
+
+    var costUsd = cost / rate;                 // cost per unit in USD
+    var fobUnit = costUsd / (1 - m);           // margin on selling price
+    var fobTotal = fobUnit * qty;
+    var cifTotal = (fobTotal + freight) / (1 - 1.1 * ins);
+    var insTotal = cifTotal * 1.1 * ins;
+    var cifUnit = cifTotal / qty;
+
+    $("fobUnit").textContent = usd(fobUnit, 4);
+    $("fobTotal").textContent = usd(fobTotal, 2);
+    $("cifUnit").textContent = usd(cifUnit, 4);
+    $("cifTotal").textContent = usd(cifTotal, 2);
+    $("freightOut").textContent = usd(freight, 2);
+    $("insOut").textContent = usd(insTotal, 2);
+    $("costTotal").textContent = usd(costUsd * qty, 2) + " (¥" + (cost * qty).toLocaleString("en-US", { maximumFractionDigits: 2 }) + ")";
+    $("profit").textContent = usd(fobTotal - costUsd * qty, 2);
+  }
+
+  ids.forEach(function (i) { $(i).addEventListener("input", calc); });
+  $("reset").addEventListener("click", function () {
+    ids.forEach(function (i) { $(i).value = defaults[i]; });
+    calc();
+  });
+  calc();
+})();
+</script>
+</body>
+</html>
