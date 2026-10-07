@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Export Quote Calculator</title>
+<title>外贸报价计算器 Export Quote Calculator</title>
 <style>
   :root {
     --bg: #f4f6fb;
@@ -36,155 +36,350 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
   }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 40px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 20px; }
-  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
-  @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: .9rem; }
+  /* bilingual: Chinese first, English smaller after it */
+  .en { font-size: .78em; color: var(--muted); font-weight: 400; }
+  h1 .en { font-size: .6em; display: block; }
+  .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 18px;
+    padding: 16px;
     box-shadow: 0 1px 3px rgba(20, 30, 60, .06);
+    margin-bottom: 16px;
   }
-  .card h2 { font-size: 1rem; margin: 0 0 14px; }
-  .fields { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .grid > div > .card:last-child { margin-bottom: 0; }
+  .card h2 { font-size: 1rem; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .card h3 { font-size: .9rem; margin: 16px 0 8px; }
+  .fields { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
   .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .field.full { grid-column: 1 / -1; }
-  label { font-size: .85rem; font-weight: 600; }
-  .input {
+  label { font-size: .85rem; font-weight: 600; line-height: 1.3; }
+  .input, select {
     display: flex; align-items: center;
     border: 1px solid var(--border); border-radius: 10px;
     background: var(--bg); overflow: hidden;
   }
-  .input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .input span { padding: 0 10px; color: var(--muted); font-size: .85rem; white-space: nowrap; }
-  input {
-    flex: 1; min-width: 0; width: 100%;
-    border: 0; outline: 0; background: transparent; color: var(--text);
-    font: inherit; padding: 10px 10px; /* 16px font avoids iOS zoom */
+  .input:focus-within, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: 0; }
+  .input span { padding: 0 10px; color: var(--muted); font-size: .8rem; white-space: nowrap; }
+  input, select {
+    min-width: 0; width: 100%;
+    color: var(--text); font: inherit; padding: 9px 10px; /* 16px font avoids iOS zoom */
   }
-  .hint { font-size: .75rem; color: var(--muted); }
-  .result {
-    border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;
-    background: var(--accent-soft);
+  input { flex: 1; border: 0; outline: 0; background: transparent; }
+  select { height: 100%; min-height: 42px; }
+  .hint { font-size: .75rem; color: var(--muted); line-height: 1.35; }
+  .custom {
+    border: 1px dashed var(--border); border-radius: 10px;
+    padding: 10px; margin-top: 10px;
   }
+  .custom .num { font-size: .75rem; color: var(--muted); margin-bottom: 6px; }
+  .refbox {
+    margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+    background: var(--accent-soft); font-size: .85rem;
+  }
+  .refbox .line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+  .refbox .rv { font-weight: 700; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+    padding: 7px 12px; line-height: 1.25;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { color: #fff; opacity: .9; }
+  button.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.chip.active .en { color: inherit; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .reset-all { width: 100%; margin-top: 4px; padding: 10px; }
+  .tag { font-size: .7rem; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); margin-left: 4px; font-weight: 600; }
+  .result { border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; background: var(--accent-soft); }
   .result.cif { background: var(--green-soft); margin-bottom: 0; }
   .result h3 { margin: 0 0 8px; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 2px 0; }
-  .row .k { color: var(--muted); font-size: .9rem; }
+  .row .k { color: var(--muted); font-size: .88rem; }
   .big { font-size: 1.6rem; font-weight: 700; }
   .result .big { color: var(--accent); }
   .result.cif .big { color: var(--green); }
   .total { font-size: 1.05rem; font-weight: 600; }
-  #error { color: var(--warn); font-size: .9rem; min-height: 1.3em; margin: 0 0 10px; }
-  .notes { font-size: .78rem; color: var(--muted); margin-top: 16px; }
-  .notes code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
-  button {
-    margin-top: 14px; width: 100%; padding: 10px; font: inherit; font-weight: 600;
-    border: 1px solid var(--border); border-radius: 10px; background: transparent;
-    color: var(--text); cursor: pointer;
-  }
-  button:hover { border-color: var(--accent); color: var(--accent); }
+  #error { color: var(--warn); font-size: .88rem; margin: 0; }
+  #error:not(:empty) { margin-bottom: 12px; }
+  .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  th, td { padding: 6px 6px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: top; }
+  th:first-child, td:first-child { text-align: left; padding-left: 0; }
+  th { font-weight: 600; font-size: .78rem; color: var(--muted); }
+  td .en { display: block; }
+  tr.sum td { font-weight: 700; border-top: 2px solid var(--border); }
+  tr.neg td { color: var(--green); }
+  tr.profit td { font-weight: 700; color: var(--accent); }
+  td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .notes { font-size: .75rem; color: var(--muted); margin-top: 12px; }
+  .notes code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; word-break: break-word; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Export Quote Calculator</h1>
-  <p class="sub">Convert RMB cost into FOB and CIF prices in USD.</p>
+  <h1>外贸报价计算器 <span class="en">Export Quote Calculator</span></h1>
+  <p class="sub">人民币成本 → FOB / CIF 美元报价。 <span class="en">RMB cost to FOB / CIF prices in USD.</span></p>
 
   <div class="grid">
-    <section class="card">
-      <h2>Inputs</h2>
-      <div class="fields">
-        <div class="field">
-          <label for="cost">Unit cost</label>
-          <div class="input"><span>CNY</span><input id="cost" type="number" inputmode="decimal" min="0" step="any" value="50"></div>
+    <!-- ============ INPUTS ============ -->
+    <div>
+      <section class="card">
+        <h2>报价设置 <span class="en">Quote Settings</span></h2>
+        <div class="fields">
+          <div class="field">
+            <label for="qty">数量 <span class="en">Quantity</span></label>
+            <div class="input"><input id="qty" type="number" inputmode="numeric" min="1" step="1" value="1000"><span>件 pcs</span></div>
+          </div>
+          <div class="field">
+            <label for="margin">目标利润率 <span class="en">Target Margin</span></label>
+            <div class="input"><input id="margin" type="number" inputmode="decimal" min="0" max="99" step="any" value="20"><span>%</span></div>
+          </div>
+          <div class="field full">
+            <label for="rate">设定汇率 <span class="en">Set Exchange Rate</span></label>
+            <div class="input"><input id="rate" type="number" inputmode="decimal" min="0" step="any" value="7.20"><span>CNY / USD</span></div>
+            <div class="hint">手动填写，所有币种换算以此为准。 <span class="en">Enter manually; all conversions use this rate.</span></div>
+            <div class="refbox" id="refbox">
+              <div class="line" id="refline"><span>实时参考汇率 <span class="en">Live Reference Rate</span>：</span><span>获取中… <span class="en">Loading…</span></span></div>
+              <div class="line" style="margin-top:6px"><button type="button" id="useRef" disabled>使用此汇率 <span class="en">Use this rate</span></button></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="freight">总运费 <span class="en">Total Freight</span></label>
+            <div class="input"><input id="freight" type="number" inputmode="decimal" min="0" step="any" value="800"><span>USD</span></div>
+            <div class="hint">整票，仅用于 CIF <span class="en">Whole shipment, CIF only</span></div>
+          </div>
+          <div class="field">
+            <label for="ins">保险费率 <span class="en">Insurance Rate</span></label>
+            <div class="input"><input id="ins" type="number" inputmode="decimal" min="0" step="any" value="0.5"><span>%</span></div>
+            <div class="hint">按 CIF 的 110% 投保 <span class="en">On 110% of CIF</span></div>
+          </div>
         </div>
-        <div class="field">
-          <label for="qty">Quantity</label>
-          <div class="input"><span>pcs</span><input id="qty" type="number" inputmode="numeric" min="1" step="1" value="1000"></div>
-        </div>
-        <div class="field">
-          <label for="rate">Exchange rate</label>
-          <div class="input"><span>CNY/USD</span><input id="rate" type="number" inputmode="decimal" min="0" step="any" value="7.20"></div>
-        </div>
-        <div class="field">
-          <label for="margin">Target profit margin</label>
-          <div class="input"><input id="margin" type="number" inputmode="decimal" min="0" max="99" step="any" value="20"><span>%</span></div>
-        </div>
-        <div class="field">
-          <label for="freight">Total freight</label>
-          <div class="input"><span>USD</span><input id="freight" type="number" inputmode="decimal" min="0" step="any" value="800"></div>
-        </div>
-        <div class="field">
-          <label for="ins">Insurance rate</label>
-          <div class="input"><input id="ins" type="number" inputmode="decimal" min="0" step="any" value="0.5"><span>%</span></div>
-        </div>
-      </div>
-      <button type="button" id="reset">Reset to defaults</button>
-      <p class="notes">
-        Margin is on selling price: <code>FOB = cost ÷ (1 − margin)</code>.
-        Insurance = 110% of CIF × rate, so <code>CIF = (FOB + freight) ÷ (1 − 1.1 × rate)</code>.
-        Freight is in USD, whole shipment.
-      </p>
-    </section>
+      </section>
 
-    <section class="card">
-      <h2>Quote</h2>
-      <p id="error" role="alert"></p>
-      <div class="result">
-        <h3>FOB</h3>
-        <div class="row"><span class="k">Unit price</span><span class="big" id="fobUnit">—</span></div>
-        <div class="row"><span class="k">Total price</span><span class="total" id="fobTotal">—</span></div>
-      </div>
-      <div class="result cif">
-        <h3>CIF</h3>
-        <div class="row"><span class="k">Unit price</span><span class="big" id="cifUnit">—</span></div>
-        <div class="row"><span class="k">Total price</span><span class="total" id="cifTotal">—</span></div>
-        <div class="row"><span class="k">Freight (total)</span><span id="freightOut">—</span></div>
-        <div class="row"><span class="k">Insurance (total)</span><span id="insOut">—</span></div>
-      </div>
-      <div class="row" style="margin-top:14px"><span class="k">Total cost</span><span id="costTotal">—</span></div>
-      <div class="row"><span class="k">Profit (FOB)</span><span id="profit">—</span></div>
-    </section>
+      <section class="card">
+        <h2>成本项 <span class="en">Costs</span></h2>
+        <div class="fields">
+          <div class="field full">
+            <label for="factory">工厂采购价（每件） <span class="en">Factory Purchase Price (per pc)</span></label>
+            <div class="input"><input id="factory" type="number" inputmode="decimal" min="0" step="any" value="50"><span>CNY</span></div>
+            <div class="hint">含增值税价 <span class="en">VAT-inclusive</span></div>
+          </div>
+        </div>
+        <h3>自定义成本项 <span class="en">Custom Costs</span></h3>
+        <div class="hint">名称为空或金额为 0 的不计入。 <span class="en">Items with an empty name or zero amount are ignored.</span></div>
+        <div id="customs"></div>
+        <div class="fields" style="margin-top:12px">
+          <div class="field full">
+            <label for="domestic">国内费用（整票） <span class="en">Domestic Charges (per shipment)</span></label>
+            <div class="input"><input id="domestic" type="number" inputmode="decimal" min="0" step="any" value="0"><span>CNY</span></div>
+            <div class="hint">内陆运费、报关费、港杂费等，按数量平摊。 <span class="en">Inland freight, customs, port fees, etc.; spread over quantity.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>出口退税 <span class="en">Export Tax Rebate</span></h2>
+        <div class="fields">
+          <div class="field full">
+            <label for="base">退税计算基数（每件） <span class="en">Rebate Base (per pc)</span><span class="tag" id="baseTag"></span></label>
+            <div class="input"><input id="base" type="number" inputmode="decimal" min="0" step="any" value="50"><span>CNY</span></div>
+            <div class="btnrow">
+              <button type="button" id="baseReset">恢复默认 <span class="en">Reset</span></button>
+            </div>
+            <div class="hint">默认等于工厂采购价；手动修改后不再自动跟随。美元计价的自定义成本项默认不计入。 <span class="en">Defaults to the factory price; stops following once edited. USD custom costs are excluded by default.</span></div>
+          </div>
+          <div class="field">
+            <label for="vat">增值税率 <span class="en">VAT Rate</span></label>
+            <div class="input"><input id="vat" type="number" inputmode="decimal" min="0" step="any" value="13"><span>%</span></div>
+          </div>
+          <div class="field">
+            <label for="rebate">退税率 <span class="en">Rebate Rate</span></label>
+            <div class="input"><input id="rebate" type="number" inputmode="decimal" min="0" step="any" value="13"><span>%</span></div>
+          </div>
+          <div class="field full">
+            <div class="btnrow" id="chips">
+              <button type="button" class="chip" data-r="13">13%</button>
+              <button type="button" class="chip" data-r="9">9%</button>
+              <button type="button" class="chip" data-r="6">6%</button>
+              <span class="hint">快捷退税率 <span class="en">Quick rebate rate</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>账期融资成本 <span class="en">Financing Cost</span></h2>
+        <div class="fields">
+          <div class="field">
+            <label for="finAmt">融资金额 <span class="en">Financed Amount</span></label>
+            <input id="finAmt" class="solo" type="number" inputmode="decimal" min="0" step="any" value="0" style="border:1px solid var(--border);border-radius:10px;background:var(--bg)">
+          </div>
+          <div class="field">
+            <label for="finCur">币种 <span class="en">Currency</span></label>
+            <select id="finCur"><option value="USD">USD</option><option value="CNY">CNY</option></select>
+          </div>
+          <div class="field">
+            <label for="finDays">账期天数 <span class="en">Credit Days</span></label>
+            <div class="input"><input id="finDays" type="number" inputmode="numeric" min="0" step="1" value="90"><span>天 days</span></div>
+          </div>
+          <div class="field">
+            <label for="finRate">年化融资成本率 <span class="en">Annual Financing Rate</span></label>
+            <div class="input"><input id="finRate" type="number" inputmode="decimal" min="0" step="any" value="3"><span>%</span></div>
+          </div>
+          <div class="field full hint">融资金额为 0 或留空时不计融资成本。 <span class="en">No financing cost when the amount is 0 or empty.</span></div>
+        </div>
+      </section>
+
+      <button type="button" id="reset" class="reset-all">重置 <span class="en">Reset</span></button>
+    </div>
+
+    <!-- ============ RESULTS ============ -->
+    <div>
+      <section class="card">
+        <h2>报价结果 <span class="en">Quote</span></h2>
+        <p id="error" role="alert"></p>
+        <div class="result">
+          <h3>FOB</h3>
+          <div class="row"><span class="k">单价 <span class="en">Unit price</span></span><span class="big" id="fobUnit">—</span></div>
+          <div class="row"><span class="k">总价 <span class="en">Total price</span></span><span class="total" id="fobTotal">—</span></div>
+        </div>
+        <div class="result cif">
+          <h3>CIF</h3>
+          <div class="row"><span class="k">单价 <span class="en">Unit price</span></span><span class="big" id="cifUnit">—</span></div>
+          <div class="row"><span class="k">总价 <span class="en">Total price</span></span><span class="total" id="cifTotal">—</span></div>
+          <div class="row"><span class="k">运费（整票） <span class="en">Freight (total)</span></span><span id="freightOut">—</span></div>
+          <div class="row"><span class="k">保险费（整票） <span class="en">Insurance (total)</span></span><span id="insOut">—</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>成本明细 <span class="en">Cost Breakdown</span></h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>项目 <span class="en">Item</span></th>
+                <th>每件 CNY <span class="en">Per pc</span></th>
+                <th>整票 CNY <span class="en">Total</span></th>
+                <th>整票 USD <span class="en">Total</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p class="notes">
+          <code>FOB 单价 = 每件实际成本 ÷ 汇率 ÷ (1 − 利润率)</code><br>
+          <code>CIF 总价 = (FOB 总价 + 运费) ÷ (1 − 1.1 × 保险费率)</code><br>
+          <code>退税额 = 基数 ÷ (1 + 增值税率) × 退税率</code><br>
+          <code>融资成本 = 融资金额 × 年化率 × 天数 ÷ 365</code>
+        </p>
+      </section>
+    </div>
   </div>
 </div>
 
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var ids = ["cost", "qty", "rate", "margin", "freight", "ins"];
-  var defaults = {};
-  ids.forEach(function (i) { defaults[i] = $(i).value; });
+  function bi(zh, en) { return '<span class="zh">' + zh + '</span> <span class="en">' + en + '</span>'; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function fmt(n, dp) { return n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
+  function usd(n, dp) { return (n < 0 ? "-$" : "$") + fmt(Math.abs(n), dp); }
 
-  function usd(n, dp) {
-    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  /* ---- custom cost rows (3) ---- */
+  var N_CUSTOM = 3;
+  var customsHtml = "";
+  for (var i = 1; i <= N_CUSTOM; i++) {
+    customsHtml +=
+      '<div class="custom"><div class="num">' + bi("自定义成本项 " + i, "Custom Cost " + i) + '</div>' +
+      '<div class="fields">' +
+      '<div class="field full"><label for="c' + i + 'n">' + bi("费用名称", "Cost Name") + '</label>' +
+        '<div class="input"><input id="c' + i + 'n" type="text" maxlength="40" placeholder="例如 包装费 e.g. Packaging"></div></div>' +
+      '<div class="field"><label for="c' + i + 'a">' + bi("金额", "Amount") + '</label>' +
+        '<div class="input"><input id="c' + i + 'a" type="number" inputmode="decimal" min="0" step="any" value="0"></div></div>' +
+      '<div class="field"><label for="c' + i + 'c">' + bi("币种", "Currency") + '</label>' +
+        '<select id="c' + i + 'c"><option value="CNY">CNY</option><option value="USD">USD</option></select></div>' +
+      '<div class="field full"><label for="c' + i + 'b">' + bi("计费方式", "Basis") + '</label>' +
+        '<select id="c' + i + 'b"><option value="unit">每件 Per pc</option><option value="lot">整票 Per shipment</option></select></div>' +
+      '</div></div>';
   }
-  function val(id) { return parseFloat($(id).value); }
+  $("customs").innerHTML = customsHtml;
 
+  /* ---- state / defaults ---- */
+  var inputIds = ["qty", "margin", "rate", "freight", "ins", "factory", "domestic", "base", "vat", "rebate",
+                  "finAmt", "finCur", "finDays", "finRate"];
+  for (i = 1; i <= N_CUSTOM; i++) inputIds.push("c" + i + "n", "c" + i + "a", "c" + i + "c", "c" + i + "b");
+  var defaults = {};
+  inputIds.forEach(function (id) { defaults[id] = $(id).value; });
+  var baseManual = false;
+  var refRate = null;
+
+  function num(id) { var v = parseFloat($(id).value); return isNaN(v) ? NaN : v; }
+  function opt(id) { var v = parseFloat($(id).value); return isNaN(v) ? 0 : v; }
+
+  /* ---- calculation ---- */
   function calc() {
-    var cost = val("cost"), qty = val("qty"), rate = val("rate");
-    var m = val("margin") / 100, freight = val("freight") || 0, ins = (val("ins") || 0) / 100;
-    var out = ["fobUnit", "fobTotal", "cifUnit", "cifTotal", "freightOut", "insOut", "costTotal", "profit"];
-    var err = "";
+    var qty = num("qty"), rate = num("rate"), factory = num("factory"), mPct = num("margin");
+    var freight = opt("freight"), insPct = opt("ins"), domestic = opt("domestic");
+    var base = opt("base"), vat = opt("vat"), rebPct = opt("rebate");
+    var finAmt = opt("finAmt"), finDays = opt("finDays"), finRate = opt("finRate");
+    var err = [];
 
-    if (!(cost >= 0) || !(qty > 0) || !(rate > 0)) err = "Enter cost, quantity and exchange rate.";
-    else if (!(m >= 0 && m < 1)) err = "Profit margin must be between 0% and 99%.";
-    else if (freight < 0 || ins < 0) err = "Freight and insurance cannot be negative.";
-    else if (1 - 1.1 * ins <= 0) err = "Insurance rate is too high.";
+    if (!(qty > 0)) err.push(bi("请填写大于 0 的数量。", "Enter a quantity greater than 0."));
+    if (!(rate > 0)) err.push(bi("请填写大于 0 的设定汇率。", "Enter an exchange rate greater than 0."));
+    if (!(factory >= 0)) err.push(bi("请填写工厂采购价（不能为负）。", "Enter the factory price (not negative)."));
+    if (!(mPct >= 0 && mPct < 100)) err.push(bi("利润率须在 0% 到 99% 之间。", "Margin must be between 0% and 99%."));
+    if (freight < 0 || insPct < 0 || domestic < 0) err.push(bi("运费、保险费率、国内费用不能为负。", "Freight, insurance and domestic charges cannot be negative."));
+    if (1 - 1.1 * insPct / 100 <= 0) err.push(bi("保险费率过高。", "Insurance rate is too high."));
+    if (base < 0 || vat < 0 || rebPct < 0) err.push(bi("退税基数、增值税率、退税率不能为负。", "Rebate base, VAT rate and rebate rate cannot be negative."));
+    if (finAmt < 0 || finDays < 0 || finRate < 0) err.push(bi("融资金额、天数、年化率不能为负。", "Financing amount, days and rate cannot be negative."));
 
-    $("error").textContent = err;
-    if (err) { out.forEach(function (o) { $(o).textContent = "—"; }); return; }
+    var items = [];
+    for (var k = 1; k <= N_CUSTOM; k++) {
+      var amt = opt("c" + k + "a"), name = $("c" + k + "n").value.trim();
+      if (amt < 0) { err.push(bi("自定义成本项 " + k + " 的金额不能为负。", "Custom cost " + k + " cannot be negative.")); continue; }
+      if (!name || amt === 0) continue;
+      items.push({ name: name, amt: amt, cur: $("c" + k + "c").value, basis: $("c" + k + "b").value });
+    }
 
-    var costUsd = cost / rate;                 // cost per unit in USD
-    var fobUnit = costUsd / (1 - m);           // margin on selling price
+    function clear() {
+      ["fobUnit", "fobTotal", "cifUnit", "cifTotal", "freightOut", "insOut"].forEach(function (o) { $(o).textContent = "—"; });
+      $("rows").innerHTML = "";
+    }
+    if (err.length) { $("error").innerHTML = err.join("<br>"); clear(); return; }
+
+    var rows = [];                       // {zh, en, name, pc, tot, cls}
+    var customPc = 0;
+    items.forEach(function (it) {
+      var cny = it.amt * (it.cur === "USD" ? rate : 1);
+      var pc = it.basis === "unit" ? cny : cny / qty;
+      customPc += pc;
+      rows.push({ name: it.name, en: it.amt + " " + it.cur + (it.basis === "unit" ? " / pc" : " / shipment"), pc: pc, tot: pc * qty });
+    });
+
+    var rebatePc = base / (1 + vat / 100) * rebPct / 100;
+    var finCny = finAmt > 0 ? finAmt * finRate / 100 * finDays / 365 * ($("finCur").value === "USD" ? rate : 1) : 0;
+    var finPc = finCny / qty;
+    var domPc = domestic / qty;
+    var actualPc = factory + customPc + domPc + finPc - rebatePc;
+
+    if (!(actualPc > 0)) { $("error").innerHTML = bi("每件实际成本须大于 0，请检查退税等输入。", "Actual cost per pc must be above 0; check the rebate inputs."); clear(); return; }
+    $("error").innerHTML = "";
+
+    var fobUnit = actualPc / rate / (1 - mPct / 100);
     var fobTotal = fobUnit * qty;
-    var cifTotal = (fobTotal + freight) / (1 - 1.1 * ins);
-    var insTotal = cifTotal * 1.1 * ins;
+    var cifTotal = (fobTotal + freight) / (1 - 1.1 * insPct / 100);
+    var insTotal = cifTotal * 1.1 * insPct / 100;
     var cifUnit = cifTotal / qty;
 
     $("fobUnit").textContent = usd(fobUnit, 4);
@@ -193,16 +388,100 @@
     $("cifTotal").textContent = usd(cifTotal, 2);
     $("freightOut").textContent = usd(freight, 2);
     $("insOut").textContent = usd(insTotal, 2);
-    $("costTotal").textContent = usd(costUsd * qty, 2) + " (¥" + (cost * qty).toLocaleString("en-US", { maximumFractionDigits: 2 }) + ")";
-    $("profit").textContent = usd(fobTotal - costUsd * qty, 2);
+
+    /* ---- breakdown table ---- */
+    var profitPc = fobUnit * rate - actualPc;
+    var html = "";
+    function tr(label, pc, cls) {
+      var tot = pc * qty;
+      html += '<tr class="' + (cls || "") + '"><td>' + label + '</td><td class="num">' + fmt(pc, 4) + '</td><td class="num">' + fmt(tot, 2) +
+              '</td><td class="num">' + usd(tot / rate, 2) + '</td></tr>';
+    }
+    tr(bi("工厂采购价", "Factory price"), factory);
+    rows.forEach(function (r) { tr(esc(r.name) + ' <span class="en">' + esc(r.en) + '</span>', r.pc); });
+    tr(bi("国内费用", "Domestic charges"), domPc);
+    tr(bi("融资成本", "Financing cost"), finPc);
+    tr(bi("出口退税", "Export tax rebate") + ' <span class="en">(' + fmt(rebatePc, 4) + ' / pc)</span>', -rebatePc, "neg");
+    tr(bi("每件实际成本", "Actual cost"), actualPc, "sum");
+    tr(bi("利润", "Profit"), profitPc, "profit");
+    $("rows").innerHTML = html;
   }
 
-  ids.forEach(function (i) { $(i).addEventListener("input", calc); });
-  $("reset").addEventListener("click", function () {
-    ids.forEach(function (i) { $(i).value = defaults[i]; });
-    calc();
+  /* ---- rebate base follows factory price until edited ---- */
+  function syncBase() {
+    if (!baseManual) $("base").value = $("factory").value;
+    $("baseTag").innerHTML = baseManual ? "手动 Manual" : "自动 Auto";
+    $("baseReset").disabled = !baseManual;
+  }
+  function syncChips() {
+    var r = $("rebate").value;
+    Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (b) {
+      b.classList.toggle("active", parseFloat(r) === parseFloat(b.getAttribute("data-r")));
+    });
+  }
+  function update() { syncBase(); syncChips(); calc(); }
+
+  inputIds.forEach(function (id) {
+    if (id === "base") return;
+    $(id).addEventListener("input", update);
+    $(id).addEventListener("change", update);
   });
-  calc();
+  $("base").addEventListener("input", function () { baseManual = true; update(); });
+  $("baseReset").addEventListener("click", function () { baseManual = false; update(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (b) {
+    b.addEventListener("click", function () { $("rebate").value = b.getAttribute("data-r"); update(); });
+  });
+  $("reset").addEventListener("click", function () {
+    inputIds.forEach(function (id) { $(id).value = defaults[id]; });
+    baseManual = false;
+    update();
+  });
+  $("useRef").addEventListener("click", function () {
+    if (refRate) { $("rate").value = refRate.toFixed(4); update(); }
+  });
+
+  /* ---- live reference rate (CNY per 1 USD) ---- */
+  var sources = [
+    { url: "https://open.er-api.com/v6/latest/USD",
+      parse: function (j) { return { rate: j.rates.CNY, time: j.time_last_update_unix ? new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "" }; } },
+    { url: "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json",
+      parse: function (j) { return { rate: j.usd.cny, time: j.date || "" }; } },
+    { url: "https://latest.currency-api.pages.dev/v1/currencies/usd.json",
+      parse: function (j) { return { rate: j.usd.cny, time: j.date || "" }; } }
+  ];
+  function fetchJson(url) {
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); }, 6000);
+    return fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) {
+      clearTimeout(t);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }, function (e) { clearTimeout(t); throw e; });
+  }
+  function loadRef(idx) {
+    if (idx >= sources.length) { showRef(null); return; }
+    fetchJson(sources[idx].url).then(function (j) {
+      var p = sources[idx].parse(j);
+      if (!(p.rate > 0)) throw new Error("bad rate");
+      showRef(p);
+    }).catch(function () { loadRef(idx + 1); });
+  }
+  function showRef(p) {
+    var line = $("refline");
+    if (!p) {
+      refRate = null;
+      line.innerHTML = '<span>' + bi("参考汇率暂不可用", "Reference rate unavailable") + '</span>';
+      $("useRef").disabled = true;
+      return;
+    }
+    refRate = p.rate;
+    line.innerHTML = '<span>' + bi("实时参考汇率", "Live Reference Rate") + '：</span><span class="rv">1 USD = ' + p.rate.toFixed(4) + ' CNY</span>' +
+      (p.time ? '<span class="hint">' + bi("更新时间", "Updated") + ' ' + esc(p.time) + '</span>' : "");
+    $("useRef").disabled = false;
+  }
+
+  update();
+  try { loadRef(0); } catch (e) { showRef(null); }
 })();
 </script>
 </body>
