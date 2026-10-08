@@ -1,0 +1,47 @@
+name: Build Windows exe
+
+# Builds QuoteCalculator.exe (double-click to run) and publishes it as the "latest" release.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "claude/**"]
+    paths: [server.py, index.html, src/**, vendor/**, build.js, ".github/workflows/build-exe.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Regenerate index.html
+        run: node build.js
+      - name: Build exe
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --name QuoteCalculator --add-data "index.html;." server.py
+      - name: Smoke test the exe
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\QuoteCalculator.exe -ArgumentList "--no-browser","--data-dir","$env:RUNNER_TEMP\qdata" -PassThru
+          Start-Sleep -Seconds 5
+          $html = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/).Content
+          $info = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/api/info).Content
+          Stop-Process -Id $p.Id -Force
+          if ($html -notmatch "Export Quote Calculator") { throw "index.html not served" }
+          Write-Host $info
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuoteCalculator-windows
+          path: dist/QuoteCalculator.exe
+      - name: Publish release "latest"
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes 2>$null
+          gh release create latest dist/QuoteCalculator.exe --title "QuoteCalculator (Windows exe)" --notes "Double-click QuoteCalculator.exe. Built from commit ${{ github.sha }}."

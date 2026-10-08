@@ -27,9 +27,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-ROOT = Path(__file__).resolve().parent
+FROZEN = getattr(sys, "frozen", False)          # True when packaged as QuoteCalculator.exe
+# Bundled resources (index.html) live in PyInstaller's temp folder; config and the default
+# data folder live next to the .exe (or next to this script) so they survive restarts.
+RES = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+ROOT = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
 CONFIG_FILE = ROOT / "config.json"
-DEFAULT_DIR = ROOT / "quote_data"
+DEFAULT_DIR = ROOT / "报价数据" if FROZEN else ROOT / "quote_data"
 MAX_BODY = 64 * 1024 * 1024
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 FILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,149}\.(xlsx|pdf)$")
@@ -155,7 +159,7 @@ def make_handler(store, port):
                 return
             parts = self._route()
             if parts in ([""], ["index.html"]):
-                page = ROOT / "index.html"
+                page = RES / "index.html"
                 if not page.is_file():
                     return self._send(500, b"index.html not found - run: node build.js", "text/plain")
                 return self._send(200, page.read_bytes(), "text/html; charset=utf-8")
@@ -232,36 +236,71 @@ def save_config(data_dir):
         print("warning: could not remember the folder (%s)" % e, file=sys.stderr)
 
 
+def say(*lines):
+    """print() that never crashes on a console that cannot show Chinese."""
+    for line in lines:
+        try:
+            print(line, flush=True)
+        except UnicodeEncodeError:
+            print(line.encode("ascii", "replace").decode("ascii"), flush=True)
+
+
+def fail(msg):
+    """Report a fatal problem; when double-clicked, keep the window open so it can be read."""
+    say(msg)
+    if FROZEN:
+        try:
+            input("按回车键退出 Press Enter to exit...")
+        except (EOFError, OSError):
+            pass
+    sys.exit(1)
+
+
+def already_running(url):
+    """True if a copy of this server is already answering on url."""
+    try:
+        from urllib.request import urlopen
+        with urlopen(url + "api/info", timeout=2) as r:
+            return "dataDir" in json.loads(r.read().decode("utf-8"))
+    except Exception:
+        return False
+
+
 def main():
     ap = argparse.ArgumentParser(description="Export Quote Calculator - local storage server")
     ap.add_argument("--data-dir", help="folder for records and generated files (remembered for next time)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true", help="do not open the browser automatically")
     args = ap.parse_args()
+    url = "http://127.0.0.1:%d/" % args.port
 
     chosen = args.data_dir or os.environ.get("QUOTE_DATA_DIR") or load_config() or str(DEFAULT_DIR)
     try:
         store = Store(chosen)
     except (ValueError, OSError) as e:
-        sys.exit("Cannot use data folder %r: %s (it must be an absolute, writable path)" % (chosen, e))
+        fail("无法使用数据文件夹 Cannot use data folder %r: %s" % (chosen, e))
     if args.data_dir:
         save_config(store.dir)
 
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(store, args.port))
     except OSError as e:
-        sys.exit("Cannot listen on port %d: %s (try --port 9000)" % (args.port, e))
-    url = "http://127.0.0.1:%d/" % args.port
-    print("Export Quote Calculator")
-    print("  Open:        " + url)
-    print("  Data folder: " + str(store.dir))
-    print("  Press Ctrl+C to stop.")
+        if already_running(url):                 # double-clicked twice: just reopen the page
+            say("程序已在运行，正在打开页面。 Already running - opening the page.")
+            if not args.no_browser:
+                webbrowser.open(url)
+            return
+        fail("端口 %d 被占用 Cannot listen on port %d: %s (try --port 9000)" % (args.port, args.port, e))
+    say("外贸报价计算器 Export Quote Calculator",
+        "  网址 Open:        " + url,
+        "  数据文件夹 Data:  " + str(store.dir),
+        "  使用期间请保持此窗口打开；关闭此窗口即退出。 Keep this window open while using; close it to quit.")
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nStopped.")
+        say("\n已停止 Stopped.")
 
 
 if __name__ == "__main__":
