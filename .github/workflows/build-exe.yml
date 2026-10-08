@@ -1,14 +1,19 @@
 name: Build Windows exe
 
-# Builds QuoteCalculator.exe (double-click to run) and publishes it as the "latest" release.
+# Builds QuoteCalculator.exe (double-click to run) and QuoteServer.zip (exe + server install scripts)
+# and publishes them as the rolling "latest" release.
 on:
   workflow_dispatch:
   push:
     branches: [main, "claude/**"]
-    paths: [server.py, index.html, src/**, vendor/**, build.js, ".github/workflows/build-exe.yml"]
+    paths: [server.py, index.html, src/**, vendor/**, build.js, deploy/**, ".github/workflows/build-exe.yml"]
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-exe
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -24,24 +29,83 @@ jobs:
         run: |
           pip install pyinstaller
           pyinstaller --onefile --name QuoteCalculator --add-data "index.html;." server.py
-      - name: Smoke test the exe
+      - name: Smoke test (personal mode)
         shell: pwsh
         run: |
           $p = Start-Process -FilePath dist\QuoteCalculator.exe -ArgumentList "--no-browser","--data-dir","$env:RUNNER_TEMP\qdata" -PassThru
           Start-Sleep -Seconds 5
           $html = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/).Content
-          $info = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/api/info).Content
           Stop-Process -Id $p.Id -Force
           if ($html -notmatch "Export Quote Calculator") { throw "index.html not served" }
-          Write-Host $info
+      - name: Smoke test (shared mode shows the login page)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\QuoteCalculator.exe -ArgumentList "--host","0.0.0.0","--port","8790","--no-browser","--data-dir","$env:RUNNER_TEMP\qdata2" -PassThru
+          Start-Sleep -Seconds 5
+          $html = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8790/).Content
+          Stop-Process -Id $p.Id -Force
+          if ($html -notmatch 'MODE="setup"') { throw "login/setup page not served" }
+      - name: Package server zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory pkg | Out-Null
+          Copy-Item dist\QuoteCalculator.exe pkg\
+          Copy-Item deploy\*.bat pkg\
+          Compress-Archive -Path pkg\* -DestinationPath QuoteServer.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: QuoteCalculator-windows
-          path: dist/QuoteCalculator.exe
+          name: windows-build
+          path: |
+            dist/QuoteCalculator.exe
+            QuoteServer.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-build
       - name: Publish release "latest"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          find . -name QuoteCalculator.exe -o -name QuoteServer.zip
+          gh release delete latest --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+          gh release create latest dist/QuoteCalculator.exe QuoteServer.zip --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "QuoteCalculator (Windows)" \
+            --notes "QuoteCalculator.exe: double-click, single user. QuoteServer.zip: company server install (see README). Built from commit $GITHUB_SHA."
+
+  # Older Windows (Server 2012 / Windows 7) cannot run Python 3.12 programs: build a Python 3.8 variant too.
+  compat:
+    needs: release
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - run: node build.js
+      - name: Build exe (Python 3.8)
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --name QuoteCalculator --add-data "index.html;." server.py
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\QuoteCalculator.exe -ArgumentList "--no-browser","--data-dir","$env:RUNNER_TEMP\qdata" -PassThru
+          Start-Sleep -Seconds 5
+          $html = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/).Content
+          Stop-Process -Id $p.Id -Force
+          if ($html -notmatch "Export Quote Calculator") { throw "index.html not served" }
+      - name: Package and upload
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete latest --cleanup-tag --yes 2>$null
-          gh release create latest dist/QuoteCalculator.exe --title "QuoteCalculator (Windows exe)" --notes "Double-click QuoteCalculator.exe. Built from commit ${{ github.sha }}."
+          New-Item -ItemType Directory pkg | Out-Null
+          Copy-Item dist\QuoteCalculator.exe pkg\
+          Copy-Item deploy\*.bat pkg\
+          Compress-Archive -Path pkg\* -DestinationPath QuoteServer-compat.zip
+          gh release upload latest QuoteServer-compat.zip --clobber --repo $env:GITHUB_REPOSITORY

@@ -443,6 +443,10 @@
           <label for="sTo">报价时间至 <span class="en">Quoted To</span></label>
           <input id="sTo" class="plain" type="date">
         </div>
+        <div class="field full" id="sByWrap" hidden>
+          <label for="sBy">创建人 <span class="en">Created by</span></label>
+          <input id="sBy" class="plain" type="text">
+        </div>
         <div class="field full">
           <label for="sBasis">报价区间（单价） <span class="en">Price Range (unit price)</span></label>
           <select id="sBasis"><option value="fob">FOB</option><option value="cif">CIF</option></select>
@@ -472,6 +476,28 @@
         </div>
       </div>
       <div class="btnrow" style="margin-top:10px"><button type="button" id="folderSet">更改文件夹 <span class="en">Change folder</span></button></div>
+    </section>
+
+    <section class="card" id="usersCard" hidden>
+      <h2>用户管理 <span class="en">Users</span></h2>
+      <div id="userList"></div>
+      <h3>添加或重置用户 <span class="en">Add or reset a user</span></h3>
+      <div class="fields">
+        <div class="field"><label for="uName">用户名 <span class="en">Username</span></label><input id="uName" class="plain" type="text" maxlength="32" autocomplete="off"></div>
+        <div class="field"><label for="uPass">密码（8 位以上） <span class="en">Password (8+)</span></label><input id="uPass" class="plain" type="password" autocomplete="new-password"></div>
+        <div class="field full chk"><input id="uAdmin" type="checkbox"><label for="uAdmin" style="font-weight:400">管理员（可管理用户） <span class="en">Administrator</span></label></div>
+      </div>
+      <div class="hint" style="margin-top:8px">用已有的用户名保存即为重置该用户密码。 <span class="en">Saving an existing username resets that user's password.</span></div>
+      <div class="btnrow" style="margin-top:10px"><button type="button" id="userSave">保存用户 <span class="en">Save user</span></button></div>
+    </section>
+
+    <section class="card" id="pwCard" hidden>
+      <h2>修改我的密码 <span class="en">Change my password</span></h2>
+      <div class="fields">
+        <div class="field"><label for="pwOld">原密码 <span class="en">Current</span></label><input id="pwOld" class="plain" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="pwNew">新密码 <span class="en">New (8+)</span></label><input id="pwNew" class="plain" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="btnrow" style="margin-top:10px"><button type="button" id="pwSave">修改密码 <span class="en">Change</span></button></div>
     </section>
 
     <section class="card">
@@ -1200,7 +1226,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   function api(method, path, body, raw) {
     return fetch(path, { method: method, headers: raw || body === undefined ? {} : { "Content-Type": "application/json" },
                          body: body === undefined ? undefined : raw ? body : JSON.stringify(body) })
-      .then(function (r) { if (!r.ok) throw new Error(method + " " + path + " → " + r.status); return r; });
+      .then(function (r) {
+        if (r.status === 401) location.reload();            // session expired: the server shows the login page
+        if (!r.ok) throw new Error(method + " " + path + " → " + r.status);
+        return r;
+      });
   }
   var store = {
     all: function (n) {
@@ -1229,13 +1259,47 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     }
   };
   function showStorage() {
-    $("storeInfo").innerHTML = SERVER
+    var who = SERVER && SERVER.user ? ' · ' + bi("当前用户", "User") + ' <b>' + esc(SERVER.user) + '</b> <button type="button" id="logout" style="padding:2px 10px;font-size:.78rem">' + bi("退出", "Log out") + '</button>' : "";
+    $("storeInfo").innerHTML = (SERVER
       ? bi("数据保存位置", "Data saved in") + ': <b>' + esc(SERVER.dataDir) + '</b>'
-      : bi("数据保存在本浏览器中（用 server.py 打开可保存到文件夹）", "Data is kept in this browser (open via server.py to save into a folder)");
-    $("folderCard").hidden = !SERVER;
+      : bi("数据保存在本浏览器中（用 server.py 打开可保存到文件夹）", "Data is kept in this browser (open via server.py to save into a folder)")) + who;
+    $("folderCard").hidden = !(SERVER && SERVER.canChangeFolder);
     $("folderNow").textContent = SERVER ? SERVER.dataDir : "";
     $("bkHint").hidden = !!SERVER;
+    $("usersCard").hidden = !(SERVER && SERVER.admin);
+    $("pwCard").hidden = !(SERVER && SERVER.user);
+    $("sByWrap").hidden = !(SERVER && SERVER.authRequired);
+    if (SERVER && SERVER.admin) loadUsers();
   }
+  $("storeInfo").addEventListener("click", function (e) {
+    if (e.target.closest("#logout")) api("POST", "/api/logout", {}).then(function () { location.reload(); });
+  });
+
+  /* ---- user management (shared server mode) ---- */
+  function loadUsers() {
+    api("GET", "/api/users").then(function (r) { return r.json(); }).then(function (list) {
+      $("userList").innerHTML = list.map(function (u) {
+        return '<div class="row"><span>' + esc(u.name) + (u.admin ? ' <span class="tag">' + bi("管理员", "admin") + '</span>' : "") + '</span>' +
+          (u.name === SERVER.user ? "" : '<button type="button" class="deluser" data-name="' + esc(u.name) + '" style="padding:2px 10px;font-size:.78rem">' + bi("删除", "Delete") + '</button>') + '</div>';
+      }).join("");
+    });
+  }
+  $("userList").addEventListener("click", function (e) {
+    var b = e.target.closest(".deluser"); if (!b) return;
+    if (!confirm("删除用户 " + b.getAttribute("data-name") + "？\nDelete this user?")) return;
+    api("DELETE", "/api/users/" + encodeURIComponent(b.getAttribute("data-name"))).then(loadUsers, function () { toast(bi("删除失败", "Delete failed")); });
+  });
+  $("userSave").addEventListener("click", function () {
+    var body = { name: $("uName").value.trim(), password: $("uPass").value, admin: $("uAdmin").checked };
+    api("POST", "/api/users", body).then(function () {
+      $("uName").value = ""; $("uPass").value = ""; $("uAdmin").checked = false; loadUsers(); toast(bi("已保存用户", "User saved"));
+    }, function () { toast(bi("保存失败：用户名 2-32 位，密码至少 8 位", "Failed: username 2-32 chars, password 8+ chars")); });
+  });
+  $("pwSave").addEventListener("click", function () {
+    api("POST", "/api/password", { old: $("pwOld").value, "new": $("pwNew").value }).then(function () {
+      $("pwOld").value = ""; $("pwNew").value = ""; toast(bi("密码已修改", "Password changed"));
+    }, function () { toast(bi("修改失败：原密码不对，或新密码少于 8 位", "Failed: wrong current password, or new password under 8 chars")); });
+  });
 
   /* ---- tabs ---- */
   function showTab(name) {
@@ -1255,7 +1319,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   var items = [], selected = {};
   function loadItems() {
     return store.all("items").then(function (a) {
-      items = a.sort(function (x, y) { return y.createdAt - x.createdAt; });
+      items = a.filter(function (i) { return i && i.code && typeof i.qty === "number"; })   // ignore hand-edited / broken records
+               .sort(function (x, y) { return y.createdAt - x.createdAt; });
       $("listCount").textContent = items.length;
     });
   }
@@ -1291,7 +1356,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         return '<div class="item" data-id="' + it.id + '">' +
           '<input type="checkbox" class="sel" aria-label="select" ' + (selected[it.id] ? "checked" : "") + '>' +
           '<div><div class="code">' + esc(it.code) + '</div><div class="desc">' + esc(it.desc) + '</div>' +
-          '<div class="meta">' + it.qty.toLocaleString("en-US") + ' pcs · FOB $' + fmt(it.fobUnit, 4) + ' · CIF $' + fmt(it.cifUnit, 4) + ' · ' + dtstr(it.createdAt) + '</div>' +
+          '<div class="meta">' + it.qty.toLocaleString("en-US") + ' pcs · FOB $' + fmt(it.fobUnit, 4) + ' · CIF $' + fmt(it.cifUnit, 4) + ' · ' + dtstr(it.createdAt) + (it.createdBy ? ' · ' + esc(it.createdBy) : '') + '</div>' +
           '<div class="acts"><button type="button" class="act-img">' + (it.image ? bi("更换图片", "Change image") : bi("添加图片", "Add image")) + '</button>' +
           (it.image ? '<button type="button" class="act-noimg">' + bi("移除图片", "Remove image") + '</button>' : "") +
           '<button type="button" class="act-load">' + bi("载入计算器", "Load") + '</button>' +
@@ -1315,7 +1380,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (b.classList.contains("act-img")) { pendingImg = id; $("imgFile").value = ""; $("imgFile").click(); }
     else if (b.classList.contains("act-noimg")) { it.image = null; it.imgW = it.imgH = 0; store.put("items", it).then(renderItems); }
     else if (b.classList.contains("act-del")) {
-      if (confirm("删除这条报价？\nDelete this item?")) { delete selected[id]; store.del("items", id).then(loadItems).then(renderItems); }
+      if (confirm("删除这条报价？\nDelete this item?")) { delete selected[id]; store.del("items", id).then(loadItems).then(renderItems, function () { toast(bi("删除失败：只有创建人或管理员可以删除", "Delete failed: only the creator or an admin can delete")); loadItems().then(renderItems); }); }
     } else if (b.classList.contains("act-load")) {
       Object.keys(it.snap).forEach(function (k) { if (k !== "customs" && $(k)) $(k).value = it.snap[k]; });
       var cl = it.snap.customs;
@@ -1637,6 +1702,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     var L = q.items;
     if (f.code && !L.some(function (l) { return l.code.toLowerCase().indexOf(f.code) >= 0; })) return false;
     if (f.desc && !L.some(function (l) { return l.desc.toLowerCase().indexOf(f.desc) >= 0; })) return false;
+    if (f.by && (q.createdBy || "").toLowerCase().indexOf(f.by) < 0) return false;
     if (f.from !== null && q.createdAt < f.from) return false;
     if (f.to !== null && q.createdAt >= f.to + 864e5) return false;
     if (f.min !== null || f.max !== null) {
@@ -1648,13 +1714,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   function dateMs(id) { var v = $(id).value; return v ? new Date(v + "T00:00:00").getTime() : null; }
   function renderQuotes() {
     store.all("quotes").then(function (a) {
-      quotes = a.sort(function (x, y) { return y.createdAt - x.createdAt; });
-      var f = { code: $("sCode").value.trim().toLowerCase(), desc: $("sDesc").value.trim().toLowerCase(),
+      quotes = a.filter(function (q) { return q && Array.isArray(q.items) && Array.isArray(q.files); })
+                .sort(function (x, y) { return y.createdAt - x.createdAt; });
+      var f = { by: $("sBy").value.trim().toLowerCase(), code: $("sCode").value.trim().toLowerCase(), desc: $("sDesc").value.trim().toLowerCase(),
                 from: dateMs("sFrom"), to: dateMs("sTo"), basis: $("sBasis").value, min: numOrNull("sMin"), max: numOrNull("sMax") };
       var hit = quotes.filter(function (q) { return matches(q, f); });
       $("sCount").innerHTML = bi("共", "Found") + " " + hit.length + " / " + quotes.length;
       $("quotes").innerHTML = hit.length ? hit.map(function (q) {
-        return '<div class="qcard" data-id="' + q.id + '"><div class="qh"><span class="qn">' + esc(q.quoteNo) + '</span><span class="hint">' + dtstr(q.createdAt) + '</span></div>' +
+        return '<div class="qcard" data-id="' + q.id + '"><div class="qh"><span class="qn">' + esc(q.quoteNo) + '</span><span class="hint">' + dtstr(q.createdAt) + (q.createdBy ? ' · ' + esc(q.createdBy) : '') + '</span></div>' +
           (q.customer ? '<div class="hint">' + esc(q.customer) + '</div>' : "") +
           '<ul>' + q.items.map(function (l) {
             return '<li><b>' + esc(l.code) + '</b> — ' + esc(l.desc) + ' <span class="hint">(' + l.qty.toLocaleString("en-US") + ' pcs, FOB $' + fmt(l.fobUnit, 4) + ', CIF $' + fmt(l.cifUnit, 4) + ')</span></li>';
@@ -1664,11 +1731,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       }).join("") : '<div class="empty-msg">' + bi(quotes.length ? "没有符合条件的报价单。" : "还没有生成过报价单。", quotes.length ? "No quotations match your search." : "No quotations generated yet.") + '</div>';
     });
   }
-  ["sCode", "sDesc", "sFrom", "sTo", "sBasis", "sMin", "sMax"].forEach(function (id) {
+  ["sBy", "sCode", "sDesc", "sFrom", "sTo", "sBasis", "sMin", "sMax"].forEach(function (id) {
     $(id).addEventListener("input", renderQuotes); $(id).addEventListener("change", renderQuotes);
   });
   $("sReset").addEventListener("click", function () {
-    ["sCode", "sDesc", "sFrom", "sTo", "sMin", "sMax"].forEach(function (id) { $(id).value = ""; });
+    ["sBy", "sCode", "sDesc", "sFrom", "sTo", "sMin", "sMax"].forEach(function (id) { $(id).value = ""; });
     $("sBasis").value = "fob"; renderQuotes();
   });
   $("quotes").addEventListener("click", function (e) {
@@ -1678,7 +1745,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       var fl = q.files.filter(function (x) { return x.name === b.getAttribute("data-name"); })[0];
       if (fl) store.fileBlob(fl).then(function (bl) { download(bl, fl.name); }, function () { toast(bi("文件读取失败", "Could not read the file")); });
     } else if (b.classList.contains("delq")) {
-      if (confirm("删除这份报价单及其文件？\nDelete this quotation and its files?")) store.del("quotes", q.id).then(function () { renderQuotes(); refreshQuoteNo(); });
+      if (confirm("删除这份报价单及其文件？\nDelete this quotation and its files?")) store.del("quotes", q.id).then(function () { renderQuotes(); refreshQuoteNo(); }, function () { toast(bi("删除失败：只有创建人或管理员可以删除", "Delete failed: only the creator or an admin can delete")); });
     }
   });
 
@@ -1728,7 +1795,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   /* ---- init storage ---- */
   function detectServer() {
     if (location.protocol.indexOf("http") !== 0) return Promise.resolve(null);
-    return fetch("/api/info").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    return fetch("/api/info").then(function (r) {
+      if (r.status === 401) { location.reload(); return null; }
+      return r.ok ? r.json() : null;
+    }).catch(function () { return null; });
   }
   detectServer().then(function (info) {
     SERVER = info;

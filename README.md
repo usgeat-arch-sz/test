@@ -13,6 +13,27 @@ A black window opens (keep it open while using; close it to quit) and the calcul
 Records and generated files are saved in a `报价数据` folder next to the .exe.
 The exe is built automatically by `.github/workflows/build-exe.yml` (PyInstaller).
 
+## Company server (several people share one set of records)
+
+Download `QuoteServer.zip` from the same release page, extract it on the Windows server
+(e.g. `D:\QuoteTool`), then right-click `install-server.bat` -> **Run as administrator**.
+It opens firewall port 8765, registers a start-at-boot task and starts the program.
+Records, generated files, `users.json` and daily `backups/` live in the `QuoteData` folder next to the exe.
+
+1. On the server itself open `http://127.0.0.1:8765/` and create the administrator account
+   (or without a browser: `QuoteCalculator.exe user add admin --admin --data-dir D:\QuoteTool\QuoteData`).
+2. The administrator adds the other users in the web page (History tab -> Users).
+3. Colleagues open `http://<server-ip>:8765/` and sign in. Records are shared; only the creator or an
+   administrator can delete a record.
+
+Windows Server 2012 / Windows 7 cannot run the default build; use `QuoteServer-compat.zip` (Python 3.8) instead.
+`uninstall-server.bat` removes the task and firewall rule (data is kept).
+
+Security notes: passwords are stored as salted PBKDF2 hashes, sessions are signed cookies (12 h),
+5 failed logins lock that user/IP for 10 minutes. The built-in server speaks plain HTTP unless you pass
+`--cert fullchain.pem --key privkey.pem`; **do not expose a plain-HTTP port to the internet**
+(passwords would travel unencrypted) - use HTTPS or a VPN for access from outside the company.
+
 ## Run with Python (saves everything into a folder you choose)
 
 ```
