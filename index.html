@@ -79,7 +79,9 @@
     border: 1px dashed var(--border); border-radius: 10px;
     padding: 10px; margin-top: 10px;
   }
-  .custom .num { font-size: .75rem; color: var(--muted); margin-bottom: 6px; }
+  .custom .numrow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .custom .num { font-size: .75rem; color: var(--muted); }
+  .custom .rm { padding: 2px 10px; font-size: .78rem; }
   .refbox {
     margin-top: 8px; padding: 8px 10px; border-radius: 10px;
     background: var(--accent-soft); font-size: .85rem;
@@ -171,6 +173,7 @@
   <h1>外贸报价计算器 <span class="en">Export Quote Calculator</span></h1>
   <p class="sub">人民币成本 → FOB / CIF 美元报价。 <span class="en">RMB cost to FOB / CIF prices in USD.</span></p>
 
+  <p class="hint" id="storeInfo" style="margin:-10px 0 12px"></p>
   <div id="warn" class="warnbar" hidden></div>
   <nav class="tabs">
     <button type="button" class="tab active" data-tab="calc">计算器 <span class="en">Calculator</span></button>
@@ -241,6 +244,7 @@
         <h3>自定义成本项 <span class="en">Custom Costs</span></h3>
         <div class="hint">名称为空或金额为 0 的不计入。 <span class="en">Items with an empty name or zero amount are ignored.</span></div>
         <div id="customs"></div>
+        <button type="button" id="addCustom" style="margin-top:10px">+ 添加成本项 <span class="en">Add cost item</span></button>
         <div class="fields" style="margin-top:12px">
           <div class="field full">
             <label for="domestic">国内费用（整票） <span class="en">Domestic Charges (per shipment)</span></label>
@@ -458,9 +462,21 @@
       <div id="quotes"></div>
     </section>
 
+    <section class="card" id="folderCard" hidden>
+      <h2>数据文件夹 <span class="en">Data Folder</span></h2>
+      <div class="hint" style="margin-bottom:8px">当前 <span class="en">Current</span>: <b id="folderNow"></b><br>报价单文件在 <code>files/</code>，记录在 <code>items/</code> 和 <code>quotes/</code>。 <span class="en">Quotation files are in <code>files/</code>; records in <code>items/</code> and <code>quotes/</code>.</span></div>
+      <div class="fields">
+        <div class="field full">
+          <label for="folderNew">更改为（绝对路径） <span class="en">Change to (absolute path)</span></label>
+          <input id="folderNew" class="plain" type="text" placeholder="D:\\Quotes  或 /home/me/quotes">
+        </div>
+      </div>
+      <div class="btnrow" style="margin-top:10px"><button type="button" id="folderSet">更改文件夹 <span class="en">Change folder</span></button></div>
+    </section>
+
     <section class="card">
       <h2>备份 <span class="en">Backup</span></h2>
-      <div class="hint" style="margin-bottom:8px">数据保存在本浏览器中；清除网站数据或更换浏览器会丢失，请定期备份。 <span class="en">Data lives in this browser only; clearing site data or switching browsers loses it. Back up regularly.</span></div>
+      <div class="hint" id="bkHint" style="margin-bottom:8px">数据保存在本浏览器中；清除网站数据或更换浏览器会丢失，请定期备份。 <span class="en">Data lives in this browser only; clearing site data or switching browsers loses it. Back up regularly.</span></div>
       <div class="btnrow">
         <button type="button" id="bkExport">导出备份 <span class="en">Export backup</span></button>
         <button type="button" id="bkImport">导入备份 <span class="en">Import backup</span></button>
@@ -913,29 +929,59 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   function fmt(n, dp) { return n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
   function usd(n, dp) { return (n < 0 ? "-$" : "$") + fmt(Math.abs(n), dp); }
 
-  /* ---- custom cost rows (3) ---- */
-  var N_CUSTOM = 3;
-  var customsHtml = "";
-  for (var i = 1; i <= N_CUSTOM; i++) {
-    customsHtml +=
-      '<div class="custom"><div class="num">' + bi("自定义成本项 " + i, "Custom Cost " + i) + '</div>' +
-      '<div class="fields">' +
-      '<div class="field full"><label for="c' + i + 'n">' + bi("费用名称", "Cost Name") + '</label>' +
-        '<div class="input"><input id="c' + i + 'n" type="text" maxlength="40" placeholder="例如 包装费 e.g. Packaging"></div></div>' +
-      '<div class="field"><label for="c' + i + 'a">' + bi("金额", "Amount") + '</label>' +
-        '<div class="input"><input id="c' + i + 'a" type="number" inputmode="decimal" min="0" step="any" value="0"></div></div>' +
-      '<div class="field"><label for="c' + i + 'c">' + bi("币种", "Currency") + '</label>' +
-        '<select id="c' + i + 'c"><option value="CNY">CNY</option><option value="USD">USD</option></select></div>' +
-      '<div class="field full"><label for="c' + i + 'b">' + bi("计费方式", "Basis") + '</label>' +
-        '<select id="c' + i + 'b"><option value="unit">每件 Per pc</option><option value="lot">整票 Per shipment</option></select></div>' +
-      '</div></div>';
+  /* ---- custom cost rows: unlimited, a spare blank row is added automatically ---- */
+  var rowSeq = 0;
+  function customRows() { return Array.prototype.slice.call($("customs").querySelectorAll(".custom")); }
+  function renumberRows() {
+    var rows = customRows();
+    rows.forEach(function (r, i) {
+      r.querySelector(".num-t").innerHTML = bi("自定义成本项 " + (i + 1), "Custom Cost " + (i + 1));
+      r.querySelector(".rm").hidden = rows.length < 2;
+    });
   }
-  $("customs").innerHTML = customsHtml;
+  function addCustomRow(d) {
+    d = d || {};
+    var k = ++rowSeq, row = document.createElement("div");
+    row.className = "custom";
+    row.innerHTML =
+      '<div class="numrow"><div class="num num-t"></div><button type="button" class="rm" aria-label="remove">' + bi("删除", "Remove") + '</button></div>' +
+      '<div class="fields">' +
+      '<div class="field full"><label for="cn' + k + '">' + bi("费用名称", "Cost Name") + '</label>' +
+        '<div class="input"><input class="cn" id="cn' + k + '" type="text" maxlength="40" placeholder="例如 包装费 e.g. Packaging"></div></div>' +
+      '<div class="field"><label for="ca' + k + '">' + bi("金额", "Amount") + '</label>' +
+        '<div class="input"><input class="ca" id="ca' + k + '" type="number" inputmode="decimal" min="0" step="any" value="0"></div></div>' +
+      '<div class="field"><label for="cc' + k + '">' + bi("币种", "Currency") + '</label>' +
+        '<select class="cc" id="cc' + k + '"><option value="CNY">CNY</option><option value="USD">USD</option></select></div>' +
+      '<div class="field full"><label for="cb' + k + '">' + bi("计费方式", "Basis") + '</label>' +
+        '<select class="cb" id="cb' + k + '"><option value="unit">每件 Per pc</option><option value="lot">整票 Per shipment</option></select></div>' +
+      '</div>';
+    $("customs").appendChild(row);
+    row.querySelector(".cn").value = d.n || "";
+    row.querySelector(".ca").value = d.a != null ? d.a : "0";
+    row.querySelector(".cc").value = d.c || "CNY";
+    row.querySelector(".cb").value = d.b || "unit";
+    renumberRows();
+  }
+  function rowFilled(r) { return r.querySelector(".cn").value.trim() !== "" || parseFloat(r.querySelector(".ca").value) > 0; }
+  function ensureSpareRow() {
+    var rows = customRows();
+    if (!rows.length || rowFilled(rows[rows.length - 1])) addCustomRow();
+  }
+  function readCustoms() {
+    return customRows().map(function (r) {
+      return { n: r.querySelector(".cn").value, a: r.querySelector(".ca").value, c: r.querySelector(".cc").value, b: r.querySelector(".cb").value };
+    });
+  }
+  function setCustoms(list) {
+    $("customs").innerHTML = "";
+    (list || []).forEach(function (d) { addCustomRow(d); });
+    ensureSpareRow();
+  }
+  addCustomRow();
 
   /* ---- state / defaults ---- */
   var inputIds = ["pcode", "pdesc", "qty", "margin", "rate", "freight", "ins", "factory", "domestic", "base", "vat", "rebate",
                   "finAmt", "finCur", "finDays", "finRate"];
-  for (i = 1; i <= N_CUSTOM; i++) inputIds.push("c" + i + "n", "c" + i + "a", "c" + i + "c", "c" + i + "b");
   var defaults = {};
   inputIds.forEach(function (id) { defaults[id] = $(id).value; });
   var baseManual = false;
@@ -963,12 +1009,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (finAmt < 0 || finDays < 0 || finRate < 0) err.push(bi("融资金额、天数、年化率不能为负。", "Financing amount, days and rate cannot be negative."));
 
     var items = [];
-    for (var k = 1; k <= N_CUSTOM; k++) {
-      var amt = opt("c" + k + "a"), name = $("c" + k + "n").value.trim();
-      if (amt < 0) { err.push(bi("自定义成本项 " + k + " 的金额不能为负。", "Custom cost " + k + " cannot be negative.")); continue; }
-      if (!name || amt === 0) continue;
-      items.push({ name: name, amt: amt, cur: $("c" + k + "c").value, basis: $("c" + k + "b").value });
-    }
+    customRows().forEach(function (r, idx) {
+      var av = parseFloat(r.querySelector(".ca").value), amt = isNaN(av) ? 0 : av, name = r.querySelector(".cn").value.trim();
+      if (amt < 0) { err.push(bi("自定义成本项 " + (idx + 1) + " 的金额不能为负。", "Custom cost " + (idx + 1) + " cannot be negative.")); return; }
+      if (!name || amt === 0) return;
+      items.push({ name: name, amt: amt, cur: r.querySelector(".cc").value, basis: r.querySelector(".cb").value });
+    });
 
     function clear() {
       ["fobUnit", "fobTotal", "cifUnit", "cifTotal", "freightOut", "insOut"].forEach(function (o) { $(o).textContent = "—"; });
@@ -1053,8 +1099,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (b) {
     b.addEventListener("click", function () { $("rebate").value = b.getAttribute("data-r"); update(); });
   });
+  $("customs").addEventListener("input", function () { ensureSpareRow(); update(); });
+  $("customs").addEventListener("change", function () { ensureSpareRow(); update(); });
+  $("customs").addEventListener("click", function (e) {
+    var rm = e.target.closest(".rm");
+    if (rm) { rm.closest(".custom").remove(); ensureSpareRow(); renumberRows(); update(); }
+  });
+  $("addCustom").addEventListener("click", function () { addCustomRow(); update(); });
   $("reset").addEventListener("click", function () {
     inputIds.forEach(function (id) { $(id).value = defaults[id]; });
+    setCustoms([]);
     baseManual = false;
     update();
   });
@@ -1142,17 +1196,46 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       t.onerror = t.onabort = function () { rej(t.error); };
     });
   }
+  var SERVER = null;                    // {dataDir} when served by server.py (records saved in a folder)
+  function api(method, path, body, raw) {
+    return fetch(path, { method: method, headers: raw || body === undefined ? {} : { "Content-Type": "application/json" },
+                         body: body === undefined ? undefined : raw ? body : JSON.stringify(body) })
+      .then(function (r) { if (!r.ok) throw new Error(method + " " + path + " → " + r.status); return r; });
+  }
   var store = {
-    all: function (n) { return DB ? tx(n, "readonly", function (s) { return s.getAll(); }) : Promise.resolve(mem[n].slice()); },
+    all: function (n) {
+      if (SERVER) return api("GET", "/api/" + n).then(function (r) { return r.json(); });
+      return DB ? tx(n, "readonly", function (s) { return s.getAll(); }) : Promise.resolve(mem[n].slice());
+    },
     put: function (n, o) {
+      if (SERVER) {
+        if (n === "items") return api("PUT", "/api/items/" + o.id, o);
+        return Promise.all(o.files.map(function (f) { return f.blob ? api("PUT", "/api/files/" + encodeURIComponent(f.name), f.blob, true) : null; }))
+          .then(function () {
+            var meta = Object.assign({}, o, { files: o.files.map(function (f) { return { type: f.type, name: f.name }; }) });
+            return api("PUT", "/api/quotes/" + o.id, meta);
+          });
+      }
       if (DB) return tx(n, "readwrite", function (s) { return s.put(o); });
       mem[n] = mem[n].filter(function (x) { return x.id !== o.id; }); mem[n].push(o); return Promise.resolve();
     },
     del: function (n, id) {
+      if (SERVER) return api("DELETE", "/api/" + n + "/" + id);   // server also removes a quotation's files
       if (DB) return tx(n, "readwrite", function (s) { return s.delete(id); });
       mem[n] = mem[n].filter(function (x) { return x.id !== id; }); return Promise.resolve();
+    },
+    fileBlob: function (f) {
+      return f.blob ? Promise.resolve(f.blob) : api("GET", "/api/files/" + encodeURIComponent(f.name)).then(function (r) { return r.blob(); });
     }
   };
+  function showStorage() {
+    $("storeInfo").innerHTML = SERVER
+      ? bi("数据保存位置", "Data saved in") + ': <b>' + esc(SERVER.dataDir) + '</b>'
+      : bi("数据保存在本浏览器中（用 server.py 打开可保存到文件夹）", "Data is kept in this browser (open via server.py to save into a folder)");
+    $("folderCard").hidden = !SERVER;
+    $("folderNow").textContent = SERVER ? SERVER.dataDir : "";
+    $("bkHint").hidden = !!SERVER;
+  }
 
   /* ---- tabs ---- */
   function showTab(name) {
@@ -1185,6 +1268,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     }
     var snap = {};
     inputIds.forEach(function (id) { snap[id] = $(id).value; });
+    snap.customs = readCustoms().filter(function (d) { return d.n.trim() !== "" || parseFloat(d.a) > 0; });
     var unitFob = r4(last.fobUnit), unitCif = r4(last.cifUnit);
     var it = {
       id: uid(), createdAt: Date.now(), code: code, desc: desc, qty: last.qty,
@@ -1233,7 +1317,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     else if (b.classList.contains("act-del")) {
       if (confirm("删除这条报价？\nDelete this item?")) { delete selected[id]; store.del("items", id).then(loadItems).then(renderItems); }
     } else if (b.classList.contains("act-load")) {
-      Object.keys(it.snap).forEach(function (k) { if ($(k)) $(k).value = it.snap[k]; });
+      Object.keys(it.snap).forEach(function (k) { if (k !== "customs" && $(k)) $(k).value = it.snap[k]; });
+      var cl = it.snap.customs;
+      if (!cl) {                                   // items saved by the earlier fixed 3-row version
+        cl = [];
+        [1, 2, 3].forEach(function (n) { if (it.snap["c" + n + "n"]) cl.push({ n: it.snap["c" + n + "n"], a: it.snap["c" + n + "a"], c: it.snap["c" + n + "c"], b: it.snap["c" + n + "b"] }); });
+      }
+      setCustoms(cl);
       baseManual = !!it.baseManual; update(); showTab("calc");
     }
   });
@@ -1329,7 +1419,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   function buildXlsx(d) {
     var wb = new ExcelJS.Workbook();
     wb.creator = d.seller || "Quotation";
-    var ws = wb.addWorksheet("Quotation", { pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
+    var ws = wb.addWorksheet("Quotation", { pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9,
+      margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.7, header: 0.3, footer: 0.3 } } });
+    ws.headerFooter.oddFooter = "&L" + d.quoteNo.replace(/&/g, "&&") + "&RPage &P / &N";
     var pc = priceCols(d), img = d.showImages;
     var cols = [{ w: 6 }];
     if (img) cols.push({ w: 16 });
@@ -1356,7 +1448,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
       c.alignment = { horizontal: "center", vertical: "middle", wrapText: true }; c.border = box;
     });
-    ws.getRow(r).height = 32; r++;
+    ws.getRow(r).height = 32;
+    ws.pageSetup.printTitlesRow = r + ":" + r;      // repeat the table header on every printed page
+    r++;
     var first = r, qtyCol = descCol + 1;
 
     d.lines.forEach(function (l, idx) {
@@ -1434,11 +1528,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     function addCol(h, w, align) { head.push(h); styles[ci] = { cellWidth: w, halign: align || "center" }; ci++; }
     styles[ci++] = { cellWidth: 10, halign: "center" };
     var colIdx = {};
-    if (img) { colIdx.img = ci; head.splice(1, 0, "Picture"); styles[ci++] = { cellWidth: 22, halign: "center" }; }
-    head.push("Product Code"); styles[ci++] = { cellWidth: 24, halign: "left" };
+    if (img) { colIdx.img = ci; head.splice(1, 0, "Picture"); styles[ci++] = { cellWidth: 20, halign: "center" }; }
+    head.push("Product Code"); styles[ci++] = { cellWidth: 22, halign: "left" };
     head.push("Description"); styles[ci++] = { halign: "left" };
-    head.push("Qty (pcs)"); styles[ci++] = { cellWidth: 15, halign: "right" };
-    pc.forEach(function (c) { head.push(c.h); styles[ci++] = { cellWidth: c.k.slice(-1) === "T" ? 23 : 21, halign: "right" }; });
+    head.push("Qty (pcs)"); styles[ci++] = { cellWidth: 14, halign: "right" };
+    pc.forEach(function (c) { head.push(c.h); styles[ci++] = { cellWidth: c.k.slice(-1) === "T" ? 22 : 20, halign: "right" }; });
     var body = d.lines.map(function (l, i) {
       var row = [String(i + 1)]; if (img) row.push("");
       row.push(lat(l.code), lat(l.desc), l.qty.toLocaleString("en-US"));
@@ -1451,7 +1545,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       totalRow.push({ content: isT ? "$" + fmt(r2(d.lines.reduce(function (a, l) { return a + priceVal(l, c.k); }, 0)), 2) : "", styles: { fontStyle: "bold" } });
     });
     doc.autoTable({
-      startY: y, head: [head], body: body, foot: [totalRow], columnStyles: styles, margin: { left: M, right: M },
+      startY: y, head: [head], body: body, foot: [totalRow], columnStyles: styles,
+      margin: { left: M, right: M, top: 16, bottom: 16 }, rowPageBreak: "avoid", showHead: "everyPage",
+      didDrawPage: function (h) {
+        if (h.pageNumber > 1) {                               // running header on continuation pages
+          doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(120);
+          doc.text((d.seller ? lat(d.seller) + "   " : "") + "Quotation " + lat(d.quoteNo) + " (continued)", M, 10); doc.setTextColor(0);
+        }
+      },
       styles: { font: "helvetica", fontSize: 8, cellPadding: 2, valign: "middle", lineColor: [191, 199, 213], lineWidth: 0.2, overflow: "linebreak" },
       headStyles: { fillColor: navy, textColor: 255, halign: "center", fontStyle: "bold" },
       footStyles: { fillColor: [234, 240, 251], textColor: 0, lineColor: [191, 199, 213], lineWidth: 0.2 },
@@ -1470,7 +1571,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     y = doc.lastAutoTable.finalY + 8;
     var notes = termNotes(d).map(function (t, i) { return doc.splitTextToSize((i + 1) + ". " + lat(t), W - M * 2); });
     var need = 6 + notes.reduce(function (a, n) { return a + n.length * 4.4; }, 0);
-    if (y + need > 287) { doc.addPage(); y = 16; }
+    if (y + need > 281) { doc.addPage(); y = 18; }
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Terms & Notes", M, y); y += 5;
     doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
     notes.forEach(function (n) { doc.text(n, M, y); y += n.length * 4.4; });
@@ -1502,12 +1603,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     generating = true; $("generate").disabled = true;
     qFields.forEach(function (id) { lsSet("qc_" + id, $(id).value); });
     nonLatin = false;
-    var base = "Quotation_" + safeName(d.quoteNo), files = [];
-    var jobs = fmts.map(function (f) {
-      return Promise.resolve().then(function () { return f === "xlsx" ? buildXlsx(d) : buildPdf(d); })
-        .then(function (blob) { files.push({ type: f, name: base + "." + f, blob: blob }); });
-    });
-    Promise.all(jobs).then(function () {
+    var base, files = [];
+    store.all("quotes").then(function (existing) {          // never overwrite an earlier quotation's files
+      var used = {};
+      existing.forEach(function (q) { q.files.forEach(function (f) { used[f.name] = true; }); });
+      var root = "Quotation_" + safeName(d.quoteNo), n = 1;
+      base = root;
+      while (fmts.some(function (f) { return used[base + "." + f]; })) base = root + "_" + (++n);
+      return Promise.all(fmts.map(function (f) {
+        return Promise.resolve().then(function () { return f === "xlsx" ? buildXlsx(d) : buildPdf(d); })
+          .then(function (blob) { files.push({ type: f, name: base + "." + f, blob: blob }); });
+      }));
+    }).then(function () {
       var rec = {
         id: uid(), createdAt: d.createdAt, quoteNo: d.quoteNo, customer: d.customer, seller: d.seller, terms: d.terms,
         items: d.lines.map(function (l) { return { code: l.code, desc: l.desc, qty: l.qty, fobUnit: l.fobUnit, cifUnit: l.cifUnit, fobTotal: l.fobTotal, cifTotal: l.cifTotal, hasImage: !!l.image }; }),
@@ -1569,7 +1676,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     var q = quotes.filter(function (x) { return x.id === card.getAttribute("data-id"); })[0]; if (!q) return;
     if (b.classList.contains("dl")) {
       var fl = q.files.filter(function (x) { return x.name === b.getAttribute("data-name"); })[0];
-      if (fl) download(fl.blob, fl.name);
+      if (fl) store.fileBlob(fl).then(function (bl) { download(bl, fl.name); }, function () { toast(bi("文件读取失败", "Could not read the file")); });
     } else if (b.classList.contains("delq")) {
       if (confirm("删除这份报价单及其文件？\nDelete this quotation and its files?")) store.del("quotes", q.id).then(function () { renderQuotes(); refreshQuoteNo(); });
     }
@@ -1580,7 +1687,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   $("bkExport").addEventListener("click", function () {
     Promise.all([store.all("items"), store.all("quotes")]).then(function (r) {
       return Promise.all(r[1].map(function (q) {
-        return Promise.all(q.files.map(function (f) { return blobToData(f.blob).then(function (d) { return { type: f.type, name: f.name, data: d }; }); }))
+        return Promise.all(q.files.map(function (f) { return store.fileBlob(f).then(blobToData).then(function (d) { return { type: f.type, name: f.name, data: d }; }); }))
           .then(function (files) { return Object.assign({}, q, { files: files }); });
       })).then(function (quotesOut) {
         var json = JSON.stringify({ app: "export-quote-calculator", version: 1, items: r[0], quotes: quotesOut });
@@ -1606,13 +1713,35 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     fr.readAsText(f);
   });
 
+  /* ---- change data folder (server mode) ---- */
+  $("folderSet").addEventListener("click", function () {
+    var v = $("folderNew").value.trim();
+    if (!v) return;
+    if (!confirm("改用新文件夹？已有数据不会自动搬移。\nSwitch to this folder? Existing data is not moved.")) return;
+    api("POST", "/api/config", { dataDir: v }).then(function (r) { return r.json(); }).then(function (j) {
+      SERVER = j; $("folderNew").value = ""; showStorage();
+      return loadItems();
+    }).then(function () { selected = {}; renderItems(); renderQuotes(); refreshQuoteNo(); toast(bi("已切换文件夹", "Folder switched")); },
+      function () { toast(bi("无法使用该文件夹（需要有效且可写的绝对路径）", "Cannot use that folder (needs a valid, writable absolute path)")); });
+  });
+
   /* ---- init storage ---- */
-  openDb().then(function (db) {
+  function detectServer() {
+    if (location.protocol.indexOf("http") !== 0) return Promise.resolve(null);
+    return fetch("/api/info").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  }
+  detectServer().then(function (info) {
+    SERVER = info;
+    return SERVER ? null : openDb();
+  }).then(function (db) {
     DB = db;
-    if (!DB) { $("warn").hidden = false; $("warn").innerHTML = bi("无法使用浏览器本地存储：刷新页面后数据会丢失。", "Browser storage is unavailable: data will be lost on refresh."); }
-    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignore */ }
+    if (!SERVER && !DB) { $("warn").hidden = false; $("warn").innerHTML = bi("无法使用浏览器本地存储：刷新页面后数据会丢失。", "Browser storage is unavailable: data will be lost on refresh."); }
+    try { if (!SERVER && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignore */ }
+    showStorage();
     return loadItems();
-  }).then(function () { refreshQuoteNo(); renderItems(); });
+  }).then(function () { refreshQuoteNo(); renderItems(); }, function () {
+    $("warn").hidden = false; $("warn").innerHTML = bi("读取数据失败，请检查 server.py 是否仍在运行。", "Could not read data; is server.py still running?");
+  });
 
   update();
   try { loadRef(0); } catch (e) { showRef(null); }
