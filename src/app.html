@@ -1,0 +1,1318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>外贸报价计算器 Export Quote Calculator</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1b2333;
+    --muted: #6b7489;
+    --border: #dfe4ee;
+    --accent: #2563eb;
+    --accent-soft: #e8f0ff;
+    --green: #0f9d6b;
+    --green-soft: #e4f6ef;
+    --warn: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420;
+      --card: #181f2f;
+      --text: #e8ecf5;
+      --muted: #98a2b8;
+      --border: #2a3350;
+      --accent: #6b9bff;
+      --accent-soft: #1c2a4d;
+      --green: #3ddc97;
+      --green-soft: #12302a;
+      --warn: #ff8a7a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: .9rem; }
+  /* bilingual: Chinese first, English smaller after it */
+  .en { font-size: .78em; color: var(--muted); font-weight: 400; }
+  h1 .en { font-size: .6em; display: block; }
+  .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(20, 30, 60, .06);
+    margin-bottom: 16px;
+  }
+  .grid > div > .card:last-child { margin-bottom: 0; }
+  .card h2 { font-size: 1rem; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .card h3 { font-size: .9rem; margin: 16px 0 8px; }
+  .fields { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: .85rem; font-weight: 600; line-height: 1.3; }
+  .input, select {
+    display: flex; align-items: center;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg); overflow: hidden;
+  }
+  .input:focus-within, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: 0; }
+  .input span { padding: 0 10px; color: var(--muted); font-size: .8rem; white-space: nowrap; }
+  input, select {
+    min-width: 0; width: 100%;
+    color: var(--text); font: inherit; padding: 9px 10px; /* 16px font avoids iOS zoom */
+  }
+  input { flex: 1; border: 0; outline: 0; background: transparent; }
+  select { height: 100%; min-height: 42px; }
+  .hint { font-size: .75rem; color: var(--muted); line-height: 1.35; }
+  .custom {
+    border: 1px dashed var(--border); border-radius: 10px;
+    padding: 10px; margin-top: 10px;
+  }
+  .custom .numrow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .custom .num { font-size: .75rem; color: var(--muted); }
+  .custom .rm { padding: 2px 10px; font-size: .78rem; }
+  .refbox {
+    margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+    background: var(--accent-soft); font-size: .85rem;
+  }
+  .refbox .line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+  .refbox .rv { font-weight: 700; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+    padding: 7px 12px; line-height: 1.25;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { color: #fff; opacity: .9; }
+  button.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.chip.active .en { color: inherit; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .reset-all { width: 100%; margin-top: 4px; padding: 10px; }
+  .tag { font-size: .7rem; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); margin-left: 4px; font-weight: 600; }
+  .result { border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; background: var(--accent-soft); }
+  .result.cif { background: var(--green-soft); margin-bottom: 0; }
+  .result h3 { margin: 0 0 8px; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 2px 0; }
+  .row .k { color: var(--muted); font-size: .88rem; }
+  .big { font-size: 1.6rem; font-weight: 700; }
+  .result .big { color: var(--accent); }
+  .result.cif .big { color: var(--green); }
+  .total { font-size: 1.05rem; font-weight: 600; }
+  #error { color: var(--warn); font-size: .88rem; margin: 0; }
+  #error:not(:empty) { margin-bottom: 12px; }
+  .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  th, td { padding: 6px 6px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: top; }
+  th:first-child, td:first-child { text-align: left; padding-left: 0; }
+  th { font-weight: 600; font-size: .78rem; color: var(--muted); }
+  td .en { display: block; }
+  tr.sum td { font-weight: 700; border-top: 2px solid var(--border); }
+  tr.neg td { color: var(--green); }
+  tr.profit td { font-weight: 700; color: var(--accent); }
+  td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .notes { font-size: .75rem; color: var(--muted); margin-top: 12px; }
+  .notes code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; word-break: break-word; }
+
+  /* ---- tabs / list / history ---- */
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; }
+  .tab { flex: 1 1 0; min-width: 0; padding: 8px 6px; line-height: 1.25; }
+  .tab .en { display: block; }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.tab.active, button.tab.active:hover:not(:disabled), button.chip.active:hover:not(:disabled) { color: #fff; }
+  .tab.active .en { color: inherit; }
+  button.primary .en { color: inherit; opacity: .85; }
+  .field.chk { flex-direction: row; align-items: flex-start; }
+  .badge { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 0 7px; font-size: .75rem; margin-left: 2px; }
+  .tab.active .badge { background: #fff3; color: #fff; }
+  [hidden] { display: none !important; }
+  .field input.plain, .field textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; padding: 9px 10px;
+  }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .field input.plain:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: 0; }
+  .addbtn { width: 100%; margin-top: 14px; padding: 11px; }
+  .item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .item:last-child { border-bottom: 0; }
+  .item input[type=checkbox], .chk input { width: 20px; height: 20px; accent-color: var(--accent); margin-top: 2px; }
+  .item .code { font-weight: 700; word-break: break-word; }
+  .item .desc { font-size: .88rem; word-break: break-word; }
+  .item .meta { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+  .item .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .item .acts button { padding: 5px 10px; font-size: .82rem; }
+  .thumb { width: 64px; height: 64px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .thumb.empty { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: .7rem; text-align: center; }
+  .chk { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .empty-msg { color: var(--muted); font-size: .9rem; padding: 12px 0; }
+  .qcard { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .qcard:last-child { border-bottom: 0; }
+  .qcard .qh { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
+  .qcard .qn { font-weight: 700; }
+  .qcard ul { margin: 6px 0; padding-left: 18px; font-size: .85rem; }
+  .qcard li { word-break: break-word; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: .9rem; z-index: 10; box-shadow: 0 4px 16px #0004; }
+  .toast .en { color: inherit; opacity: .8; }
+  .warnbar { background: var(--accent-soft); color: var(--warn); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>外贸报价计算器 <span class="en">Export Quote Calculator</span></h1>
+  <p class="sub">人民币成本 → FOB / CIF 美元报价。 <span class="en">RMB cost to FOB / CIF prices in USD.</span></p>
+
+  <p class="hint" id="storeInfo" style="margin:-10px 0 12px"></p>
+  <div id="warn" class="warnbar" hidden></div>
+  <nav class="tabs">
+    <button type="button" class="tab active" data-tab="calc">计算器 <span class="en">Calculator</span></button>
+    <button type="button" class="tab" data-tab="list">报价清单 <span class="en">Quote List</span> <span class="badge" id="listCount">0</span></button>
+    <button type="button" class="tab" data-tab="hist">历史记录 <span class="en">History</span></button>
+  </nav>
+
+  <div id="tab-calc">
+  <div class="grid">
+    <!-- ============ INPUTS ============ -->
+    <div>
+      <section class="card">
+        <h2>产品信息 <span class="en">Product Info</span></h2>
+        <div class="fields">
+          <div class="field full">
+            <label for="pcode">产品编号 <span class="en">Product Code</span></label>
+            <input id="pcode" class="plain" type="text" maxlength="40" placeholder="例如 A-1001 e.g. A-1001" autocomplete="off">
+          </div>
+          <div class="field full">
+            <label for="pdesc">产品描述（英文，用于报价单） <span class="en">Description (English, shown on the quotation)</span></label>
+            <textarea id="pdesc" maxlength="300" placeholder="e.g. Stainless steel vacuum flask, 500ml"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>报价设置 <span class="en">Quote Settings</span></h2>
+        <div class="fields">
+          <div class="field">
+            <label for="qty">数量 <span class="en">Quantity</span></label>
+            <div class="input"><input id="qty" type="number" inputmode="numeric" min="1" step="1" value="1000"><span>件 pcs</span></div>
+          </div>
+          <div class="field">
+            <label for="margin">目标利润率 <span class="en">Target Margin</span></label>
+            <div class="input"><input id="margin" type="number" inputmode="decimal" min="0" max="99" step="any" value="20"><span>%</span></div>
+          </div>
+          <div class="field full">
+            <label for="rate">设定汇率 <span class="en">Set Exchange Rate</span></label>
+            <div class="input"><input id="rate" type="number" inputmode="decimal" min="0" step="any" value="7.20"><span>CNY / USD</span></div>
+            <div class="hint">手动填写，所有币种换算以此为准。 <span class="en">Enter manually; all conversions use this rate.</span></div>
+            <div class="refbox" id="refbox">
+              <div class="line" id="refline"><span>实时参考汇率 <span class="en">Live Reference Rate</span>：</span><span>获取中… <span class="en">Loading…</span></span></div>
+              <div class="line" style="margin-top:6px"><button type="button" id="useRef" disabled>使用此汇率 <span class="en">Use this rate</span></button></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="freight">总运费 <span class="en">Total Freight</span></label>
+            <div class="input"><input id="freight" type="number" inputmode="decimal" min="0" step="any" value="800"><span>USD</span></div>
+            <div class="hint">整票，仅用于 CIF <span class="en">Whole shipment, CIF only</span></div>
+          </div>
+          <div class="field">
+            <label for="ins">保险费率 <span class="en">Insurance Rate</span></label>
+            <div class="input"><input id="ins" type="number" inputmode="decimal" min="0" step="any" value="0.5"><span>%</span></div>
+            <div class="hint">按 CIF 的 110% 投保 <span class="en">On 110% of CIF</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>成本项 <span class="en">Costs</span></h2>
+        <div class="fields">
+          <div class="field full">
+            <label for="factory">工厂采购价（每件） <span class="en">Factory Purchase Price (per pc)</span></label>
+            <div class="input"><input id="factory" type="number" inputmode="decimal" min="0" step="any" value="50"><span>CNY</span></div>
+            <div class="hint">含增值税价 <span class="en">VAT-inclusive</span></div>
+          </div>
+        </div>
+        <h3>自定义成本项 <span class="en">Custom Costs</span></h3>
+        <div class="hint">名称为空或金额为 0 的不计入。 <span class="en">Items with an empty name or zero amount are ignored.</span></div>
+        <div id="customs"></div>
+        <button type="button" id="addCustom" style="margin-top:10px">+ 添加成本项 <span class="en">Add cost item</span></button>
+        <div class="fields" style="margin-top:12px">
+          <div class="field full">
+            <label for="domestic">国内费用（整票） <span class="en">Domestic Charges (per shipment)</span></label>
+            <div class="input"><input id="domestic" type="number" inputmode="decimal" min="0" step="any" value="0"><span>CNY</span></div>
+            <div class="hint">内陆运费、报关费、港杂费等，按数量平摊。 <span class="en">Inland freight, customs, port fees, etc.; spread over quantity.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>出口退税 <span class="en">Export Tax Rebate</span></h2>
+        <div class="fields">
+          <div class="field full">
+            <label for="base">退税计算基数（每件） <span class="en">Rebate Base (per pc)</span><span class="tag" id="baseTag"></span></label>
+            <div class="input"><input id="base" type="number" inputmode="decimal" min="0" step="any" value="50"><span>CNY</span></div>
+            <div class="btnrow">
+              <button type="button" id="baseReset">恢复默认 <span class="en">Reset</span></button>
+            </div>
+            <div class="hint">默认等于工厂采购价；手动修改后不再自动跟随。美元计价的自定义成本项默认不计入。 <span class="en">Defaults to the factory price; stops following once edited. USD custom costs are excluded by default.</span></div>
+          </div>
+          <div class="field">
+            <label for="vat">增值税率 <span class="en">VAT Rate</span></label>
+            <div class="input"><input id="vat" type="number" inputmode="decimal" min="0" step="any" value="13"><span>%</span></div>
+          </div>
+          <div class="field">
+            <label for="rebate">退税率 <span class="en">Rebate Rate</span></label>
+            <div class="input"><input id="rebate" type="number" inputmode="decimal" min="0" step="any" value="13"><span>%</span></div>
+          </div>
+          <div class="field full">
+            <div class="btnrow" id="chips">
+              <button type="button" class="chip" data-r="13">13%</button>
+              <button type="button" class="chip" data-r="9">9%</button>
+              <button type="button" class="chip" data-r="6">6%</button>
+              <span class="hint">快捷退税率 <span class="en">Quick rebate rate</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>账期融资成本 <span class="en">Financing Cost</span></h2>
+        <div class="fields">
+          <div class="field">
+            <label for="finAmt">融资金额 <span class="en">Financed Amount</span></label>
+            <input id="finAmt" class="solo" type="number" inputmode="decimal" min="0" step="any" value="0" style="border:1px solid var(--border);border-radius:10px;background:var(--bg)">
+          </div>
+          <div class="field">
+            <label for="finCur">币种 <span class="en">Currency</span></label>
+            <select id="finCur"><option value="USD">USD</option><option value="CNY">CNY</option></select>
+          </div>
+          <div class="field">
+            <label for="finDays">账期天数 <span class="en">Credit Days</span></label>
+            <div class="input"><input id="finDays" type="number" inputmode="numeric" min="0" step="1" value="90"><span>天 days</span></div>
+          </div>
+          <div class="field">
+            <label for="finRate">年化融资成本率 <span class="en">Annual Financing Rate</span></label>
+            <div class="input"><input id="finRate" type="number" inputmode="decimal" min="0" step="any" value="3"><span>%</span></div>
+          </div>
+          <div class="field full hint">融资金额为 0 或留空时不计融资成本。 <span class="en">No financing cost when the amount is 0 or empty.</span></div>
+        </div>
+      </section>
+
+      <button type="button" id="reset" class="reset-all">重置 <span class="en">Reset</span></button>
+    </div>
+
+    <!-- ============ RESULTS ============ -->
+    <div>
+      <section class="card">
+        <h2>报价结果 <span class="en">Quote</span></h2>
+        <p id="error" role="alert"></p>
+        <div class="result">
+          <h3>FOB</h3>
+          <div class="row"><span class="k">单价 <span class="en">Unit price</span></span><span class="big" id="fobUnit">—</span></div>
+          <div class="row"><span class="k">总价 <span class="en">Total price</span></span><span class="total" id="fobTotal">—</span></div>
+        </div>
+        <div class="result cif">
+          <h3>CIF</h3>
+          <div class="row"><span class="k">单价 <span class="en">Unit price</span></span><span class="big" id="cifUnit">—</span></div>
+          <div class="row"><span class="k">总价 <span class="en">Total price</span></span><span class="total" id="cifTotal">—</span></div>
+          <div class="row"><span class="k">运费（整票） <span class="en">Freight (total)</span></span><span id="freightOut">—</span></div>
+          <div class="row"><span class="k">保险费（整票） <span class="en">Insurance (total)</span></span><span id="insOut">—</span></div>
+        </div>
+        <button type="button" id="addItem" class="primary addbtn" disabled>加入报价清单 <span class="en">Add to Quote List</span></button>
+      </section>
+
+      <section class="card">
+        <h2>成本明细 <span class="en">Cost Breakdown</span></h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>项目 <span class="en">Item</span></th>
+                <th>每件 CNY <span class="en">Per pc</span></th>
+                <th>整票 CNY <span class="en">Total</span></th>
+                <th>整票 USD <span class="en">Total</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p class="notes">
+          <code>FOB 单价 = 每件实际成本 ÷ 汇率 ÷ (1 − 利润率)</code><br>
+          <code>CIF 总价 = (FOB 总价 + 运费) ÷ (1 − 1.1 × 保险费率)</code><br>
+          <code>退税额 = 基数 ÷ (1 + 增值税率) × 退税率</code><br>
+          <code>融资成本 = 融资金额 × 年化率 × 天数 ÷ 365</code>
+        </p>
+      </section>
+    </div>
+  </div><!-- /grid -->
+  </div><!-- /tab-calc -->
+
+  <!-- ============ QUOTE LIST ============ -->
+  <div id="tab-list" hidden>
+    <section class="card">
+      <h2>报价清单 <span class="en">Quote List</span></h2>
+      <div class="toolbar">
+        <button type="button" id="selAll">全选 <span class="en">Select all</span></button>
+        <button type="button" id="selNone">全不选 <span class="en">Clear</span></button>
+        <span class="hint" id="selCount"></span>
+      </div>
+      <div id="items"></div>
+      <input type="file" id="imgFile" accept="image/*" hidden>
+    </section>
+
+    <section class="card">
+      <h2>生成报价单 <span class="en">Generate Quotation</span></h2>
+      <div class="fields">
+        <div class="field">
+          <label for="qSeller">公司名称 <span class="en">Your Company Name</span></label>
+          <input id="qSeller" class="plain" type="text" maxlength="80" placeholder="Your Company Ltd.">
+        </div>
+        <div class="field">
+          <label for="qCustomer">客户 <span class="en">To (Customer)</span></label>
+          <input id="qCustomer" class="plain" type="text" maxlength="80" placeholder="Customer name">
+        </div>
+        <div class="field">
+          <label for="qNo">报价单号 <span class="en">Quotation No.</span></label>
+          <input id="qNo" class="plain" type="text" maxlength="40">
+        </div>
+        <div class="field">
+          <label for="qValid">有效期 <span class="en">Validity</span></label>
+          <div class="input"><input id="qValid" type="number" inputmode="numeric" min="1" step="1" value="30"><span>天 days</span></div>
+        </div>
+        <div class="field">
+          <label for="qLoad">装运港 <span class="en">Port of Loading</span></label>
+          <input id="qLoad" class="plain" type="text" maxlength="60" placeholder="e.g. Shanghai, China">
+        </div>
+        <div class="field">
+          <label for="qDest">目的港 <span class="en">Port of Destination</span></label>
+          <input id="qDest" class="plain" type="text" maxlength="60" placeholder="e.g. Los Angeles, USA">
+        </div>
+        <div class="field full">
+          <label for="qPay">付款条件 <span class="en">Payment Terms</span></label>
+          <input id="qPay" class="plain" type="text" maxlength="120" value="T/T">
+        </div>
+        <div class="field full">
+          <label for="qTerms">报价条款 <span class="en">Price Terms</span></label>
+          <select id="qTerms"><option value="BOTH">FOB + CIF</option><option value="FOB">FOB</option><option value="CIF">CIF</option></select>
+        </div>
+        <div class="field full">
+          <label for="qRemarks">备注 <span class="en">Remarks</span></label>
+          <textarea id="qRemarks" maxlength="400" placeholder="e.g. Delivery: 30 days after deposit"></textarea>
+        </div>
+        <div class="field full chk"><input id="qImg" type="checkbox" checked><label for="qImg" style="font-weight:400">显示参考图片（仅清单中已添加图片的产品） <span class="en">Show reference images (only items with an image)</span></label></div>
+        <div class="field full">
+          <label>导出格式 <span class="en">Output Format</span></label>
+          <div class="btnrow">
+            <label class="chk" style="font-weight:400"><input id="fXlsx" type="checkbox" checked> Excel (.xlsx)</label>
+            <label class="chk" style="font-weight:400"><input id="fPdf" type="checkbox" checked> PDF</label>
+          </div>
+        </div>
+      </div>
+      <p id="genError" role="alert" style="color:var(--warn);font-size:.88rem;margin:10px 0 0"></p>
+      <button type="button" id="generate" class="primary addbtn">生成报价单 <span class="en">Generate</span></button>
+    </section>
+  </div>
+
+  <!-- ============ HISTORY ============ -->
+  <div id="tab-hist" hidden>
+    <section class="card">
+      <h2>检索 <span class="en">Search</span></h2>
+      <div class="fields">
+        <div class="field">
+          <label for="sCode">产品编号 <span class="en">Product Code</span></label>
+          <input id="sCode" class="plain" type="text" placeholder="A-1001">
+        </div>
+        <div class="field">
+          <label for="sDesc">产品描述 <span class="en">Description</span></label>
+          <input id="sDesc" class="plain" type="text" placeholder="flask">
+        </div>
+        <div class="field">
+          <label for="sFrom">报价时间自 <span class="en">Quoted From</span></label>
+          <input id="sFrom" class="plain" type="date">
+        </div>
+        <div class="field">
+          <label for="sTo">报价时间至 <span class="en">Quoted To</span></label>
+          <input id="sTo" class="plain" type="date">
+        </div>
+        <div class="field full">
+          <label for="sBasis">报价区间（单价） <span class="en">Price Range (unit price)</span></label>
+          <select id="sBasis"><option value="fob">FOB</option><option value="cif">CIF</option></select>
+        </div>
+        <div class="field">
+          <div class="input"><span>$</span><input id="sMin" type="number" inputmode="decimal" min="0" step="any" placeholder="最低 Min" aria-label="Min"></div>
+        </div>
+        <div class="field">
+          <div class="input"><span>$</span><input id="sMax" type="number" inputmode="decimal" min="0" step="any" placeholder="最高 Max" aria-label="Max"></div>
+        </div>
+      </div>
+      <div class="btnrow" style="margin-top:12px"><button type="button" id="sReset">重置 <span class="en">Reset</span></button><span class="hint" id="sCount"></span></div>
+    </section>
+
+    <section class="card">
+      <h2>已生成的报价单 <span class="en">Generated Quotations</span></h2>
+      <div id="quotes"></div>
+    </section>
+
+    <section class="card" id="folderCard" hidden>
+      <h2>数据文件夹 <span class="en">Data Folder</span></h2>
+      <div class="hint" style="margin-bottom:8px">当前 <span class="en">Current</span>: <b id="folderNow"></b><br>报价单文件在 <code>files/</code>，记录在 <code>items/</code> 和 <code>quotes/</code>。 <span class="en">Quotation files are in <code>files/</code>; records in <code>items/</code> and <code>quotes/</code>.</span></div>
+      <div class="fields">
+        <div class="field full">
+          <label for="folderNew">更改为（绝对路径） <span class="en">Change to (absolute path)</span></label>
+          <input id="folderNew" class="plain" type="text" placeholder="D:\\Quotes  或 /home/me/quotes">
+        </div>
+      </div>
+      <div class="btnrow" style="margin-top:10px"><button type="button" id="folderSet">更改文件夹 <span class="en">Change folder</span></button></div>
+    </section>
+
+    <section class="card">
+      <h2>备份 <span class="en">Backup</span></h2>
+      <div class="hint" id="bkHint" style="margin-bottom:8px">数据保存在本浏览器中；清除网站数据或更换浏览器会丢失，请定期备份。 <span class="en">Data lives in this browser only; clearing site data or switching browsers loses it. Back up regularly.</span></div>
+      <div class="btnrow">
+        <button type="button" id="bkExport">导出备份 <span class="en">Export backup</span></button>
+        <button type="button" id="bkImport">导入备份 <span class="en">Import backup</span></button>
+        <input type="file" id="bkFile" accept="application/json,.json" hidden>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>
+<!--VENDOR-->
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function bi(zh, en) { return '<span class="zh">' + zh + '</span> <span class="en">' + en + '</span>'; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function fmt(n, dp) { return n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
+  function usd(n, dp) { return (n < 0 ? "-$" : "$") + fmt(Math.abs(n), dp); }
+
+  /* ---- custom cost rows: unlimited, a spare blank row is added automatically ---- */
+  var rowSeq = 0;
+  function customRows() { return Array.prototype.slice.call($("customs").querySelectorAll(".custom")); }
+  function renumberRows() {
+    var rows = customRows();
+    rows.forEach(function (r, i) {
+      r.querySelector(".num-t").innerHTML = bi("自定义成本项 " + (i + 1), "Custom Cost " + (i + 1));
+      r.querySelector(".rm").hidden = rows.length < 2;
+    });
+  }
+  function addCustomRow(d) {
+    d = d || {};
+    var k = ++rowSeq, row = document.createElement("div");
+    row.className = "custom";
+    row.innerHTML =
+      '<div class="numrow"><div class="num num-t"></div><button type="button" class="rm" aria-label="remove">' + bi("删除", "Remove") + '</button></div>' +
+      '<div class="fields">' +
+      '<div class="field full"><label for="cn' + k + '">' + bi("费用名称", "Cost Name") + '</label>' +
+        '<div class="input"><input class="cn" id="cn' + k + '" type="text" maxlength="40" placeholder="例如 包装费 e.g. Packaging"></div></div>' +
+      '<div class="field"><label for="ca' + k + '">' + bi("金额", "Amount") + '</label>' +
+        '<div class="input"><input class="ca" id="ca' + k + '" type="number" inputmode="decimal" min="0" step="any" value="0"></div></div>' +
+      '<div class="field"><label for="cc' + k + '">' + bi("币种", "Currency") + '</label>' +
+        '<select class="cc" id="cc' + k + '"><option value="CNY">CNY</option><option value="USD">USD</option></select></div>' +
+      '<div class="field full"><label for="cb' + k + '">' + bi("计费方式", "Basis") + '</label>' +
+        '<select class="cb" id="cb' + k + '"><option value="unit">每件 Per pc</option><option value="lot">整票 Per shipment</option></select></div>' +
+      '</div>';
+    $("customs").appendChild(row);
+    row.querySelector(".cn").value = d.n || "";
+    row.querySelector(".ca").value = d.a != null ? d.a : "0";
+    row.querySelector(".cc").value = d.c || "CNY";
+    row.querySelector(".cb").value = d.b || "unit";
+    renumberRows();
+  }
+  function rowFilled(r) { return r.querySelector(".cn").value.trim() !== "" || parseFloat(r.querySelector(".ca").value) > 0; }
+  function ensureSpareRow() {
+    var rows = customRows();
+    if (!rows.length || rowFilled(rows[rows.length - 1])) addCustomRow();
+  }
+  function readCustoms() {
+    return customRows().map(function (r) {
+      return { n: r.querySelector(".cn").value, a: r.querySelector(".ca").value, c: r.querySelector(".cc").value, b: r.querySelector(".cb").value };
+    });
+  }
+  function setCustoms(list) {
+    $("customs").innerHTML = "";
+    (list || []).forEach(function (d) { addCustomRow(d); });
+    ensureSpareRow();
+  }
+  addCustomRow();
+
+  /* ---- state / defaults ---- */
+  var inputIds = ["pcode", "pdesc", "qty", "margin", "rate", "freight", "ins", "factory", "domestic", "base", "vat", "rebate",
+                  "finAmt", "finCur", "finDays", "finRate"];
+  var defaults = {};
+  inputIds.forEach(function (id) { defaults[id] = $(id).value; });
+  var baseManual = false;
+  var refRate = null;
+  var last = null;                       // latest valid quote result, used by "Add to Quote List"
+
+  function num(id) { var v = parseFloat($(id).value); return isNaN(v) ? NaN : v; }
+  function opt(id) { var v = parseFloat($(id).value); return isNaN(v) ? 0 : v; }
+
+  /* ---- calculation ---- */
+  function calc() {
+    var qty = num("qty"), rate = num("rate"), factory = num("factory"), mPct = num("margin");
+    var freight = opt("freight"), insPct = opt("ins"), domestic = opt("domestic");
+    var base = opt("base"), vat = opt("vat"), rebPct = opt("rebate");
+    var finAmt = opt("finAmt"), finDays = opt("finDays"), finRate = opt("finRate");
+    var err = [];
+
+    if (!(qty > 0)) err.push(bi("请填写大于 0 的数量。", "Enter a quantity greater than 0."));
+    if (!(rate > 0)) err.push(bi("请填写大于 0 的设定汇率。", "Enter an exchange rate greater than 0."));
+    if (!(factory >= 0)) err.push(bi("请填写工厂采购价（不能为负）。", "Enter the factory price (not negative)."));
+    if (!(mPct >= 0 && mPct < 100)) err.push(bi("利润率须在 0% 到 99% 之间。", "Margin must be between 0% and 99%."));
+    if (freight < 0 || insPct < 0 || domestic < 0) err.push(bi("运费、保险费率、国内费用不能为负。", "Freight, insurance and domestic charges cannot be negative."));
+    if (1 - 1.1 * insPct / 100 <= 0) err.push(bi("保险费率过高。", "Insurance rate is too high."));
+    if (base < 0 || vat < 0 || rebPct < 0) err.push(bi("退税基数、增值税率、退税率不能为负。", "Rebate base, VAT rate and rebate rate cannot be negative."));
+    if (finAmt < 0 || finDays < 0 || finRate < 0) err.push(bi("融资金额、天数、年化率不能为负。", "Financing amount, days and rate cannot be negative."));
+
+    var items = [];
+    customRows().forEach(function (r, idx) {
+      var av = parseFloat(r.querySelector(".ca").value), amt = isNaN(av) ? 0 : av, name = r.querySelector(".cn").value.trim();
+      if (amt < 0) { err.push(bi("自定义成本项 " + (idx + 1) + " 的金额不能为负。", "Custom cost " + (idx + 1) + " cannot be negative.")); return; }
+      if (!name || amt === 0) return;
+      items.push({ name: name, amt: amt, cur: r.querySelector(".cc").value, basis: r.querySelector(".cb").value });
+    });
+
+    function clear() {
+      ["fobUnit", "fobTotal", "cifUnit", "cifTotal", "freightOut", "insOut"].forEach(function (o) { $(o).textContent = "—"; });
+      $("rows").innerHTML = "";
+      last = null; $("addItem").disabled = true;
+    }
+    if (err.length) { $("error").innerHTML = err.join("<br>"); clear(); return; }
+
+    var rows = [];                       // {zh, en, name, pc, tot, cls}
+    var customPc = 0;
+    items.forEach(function (it) {
+      var cny = it.amt * (it.cur === "USD" ? rate : 1);
+      var pc = it.basis === "unit" ? cny : cny / qty;
+      customPc += pc;
+      rows.push({ name: it.name, en: it.amt + " " + it.cur + (it.basis === "unit" ? " / pc" : " / shipment"), pc: pc, tot: pc * qty });
+    });
+
+    var rebatePc = base / (1 + vat / 100) * rebPct / 100;
+    var finCny = finAmt > 0 ? finAmt * finRate / 100 * finDays / 365 * ($("finCur").value === "USD" ? rate : 1) : 0;
+    var finPc = finCny / qty;
+    var domPc = domestic / qty;
+    var actualPc = factory + customPc + domPc + finPc - rebatePc;
+
+    if (!(actualPc > 0)) { $("error").innerHTML = bi("每件实际成本须大于 0，请检查退税等输入。", "Actual cost per pc must be above 0; check the rebate inputs."); clear(); return; }
+    $("error").innerHTML = "";
+
+    var fobUnit = actualPc / rate / (1 - mPct / 100);
+    var fobTotal = fobUnit * qty;
+    var cifTotal = (fobTotal + freight) / (1 - 1.1 * insPct / 100);
+    var insTotal = cifTotal * 1.1 * insPct / 100;
+    var cifUnit = cifTotal / qty;
+
+    $("fobUnit").textContent = usd(fobUnit, 4);
+    $("fobTotal").textContent = usd(fobTotal, 2);
+    $("cifUnit").textContent = usd(cifUnit, 4);
+    $("cifTotal").textContent = usd(cifTotal, 2);
+    $("freightOut").textContent = usd(freight, 2);
+    $("insOut").textContent = usd(insTotal, 2);
+    last = { qty: qty, rate: rate, fobUnit: fobUnit, fobTotal: fobTotal, cifUnit: cifUnit, cifTotal: cifTotal,
+             freight: freight, insTotal: insTotal, actualPc: actualPc };
+    $("addItem").disabled = false;
+
+    /* ---- breakdown table ---- */
+    var profitPc = fobUnit * rate - actualPc;
+    var html = "";
+    function tr(label, pc, cls) {
+      var tot = pc * qty;
+      html += '<tr class="' + (cls || "") + '"><td>' + label + '</td><td class="num">' + fmt(pc, 4) + '</td><td class="num">' + fmt(tot, 2) +
+              '</td><td class="num">' + usd(tot / rate, 2) + '</td></tr>';
+    }
+    tr(bi("工厂采购价", "Factory price"), factory);
+    rows.forEach(function (r) { tr(esc(r.name) + ' <span class="en">' + esc(r.en) + '</span>', r.pc); });
+    tr(bi("国内费用", "Domestic charges"), domPc);
+    tr(bi("融资成本", "Financing cost"), finPc);
+    tr(bi("出口退税", "Export tax rebate") + ' <span class="en">(' + fmt(rebatePc, 4) + ' / pc)</span>', -rebatePc, "neg");
+    tr(bi("每件实际成本", "Actual cost"), actualPc, "sum");
+    tr(bi("利润", "Profit"), profitPc, "profit");
+    $("rows").innerHTML = html;
+  }
+
+  /* ---- rebate base follows factory price until edited ---- */
+  function syncBase() {
+    if (!baseManual) $("base").value = $("factory").value;
+    $("baseTag").innerHTML = baseManual ? "手动 Manual" : "自动 Auto";
+    $("baseReset").disabled = !baseManual;
+  }
+  function syncChips() {
+    var r = $("rebate").value;
+    Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (b) {
+      b.classList.toggle("active", parseFloat(r) === parseFloat(b.getAttribute("data-r")));
+    });
+  }
+  function update() { syncBase(); syncChips(); calc(); }
+
+  inputIds.forEach(function (id) {
+    if (id === "base") return;
+    $(id).addEventListener("input", update);
+    $(id).addEventListener("change", update);
+  });
+  $("base").addEventListener("input", function () { baseManual = true; update(); });
+  $("baseReset").addEventListener("click", function () { baseManual = false; update(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (b) {
+    b.addEventListener("click", function () { $("rebate").value = b.getAttribute("data-r"); update(); });
+  });
+  $("customs").addEventListener("input", function () { ensureSpareRow(); update(); });
+  $("customs").addEventListener("change", function () { ensureSpareRow(); update(); });
+  $("customs").addEventListener("click", function (e) {
+    var rm = e.target.closest(".rm");
+    if (rm) { rm.closest(".custom").remove(); ensureSpareRow(); renumberRows(); update(); }
+  });
+  $("addCustom").addEventListener("click", function () { addCustomRow(); update(); });
+  $("reset").addEventListener("click", function () {
+    inputIds.forEach(function (id) { $(id).value = defaults[id]; });
+    setCustoms([]);
+    baseManual = false;
+    update();
+  });
+  $("useRef").addEventListener("click", function () {
+    if (refRate) { $("rate").value = refRate.toFixed(4); update(); }
+  });
+
+  /* ---- live reference rate (CNY per 1 USD) ---- */
+  var sources = [
+    { url: "https://open.er-api.com/v6/latest/USD",
+      parse: function (j) { return { rate: j.rates.CNY, time: j.time_last_update_unix ? new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "" }; } },
+    { url: "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json",
+      parse: function (j) { return { rate: j.usd.cny, time: j.date || "" }; } },
+    { url: "https://latest.currency-api.pages.dev/v1/currencies/usd.json",
+      parse: function (j) { return { rate: j.usd.cny, time: j.date || "" }; } }
+  ];
+  function fetchJson(url) {
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); }, 6000);
+    return fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) {
+      clearTimeout(t);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }, function (e) { clearTimeout(t); throw e; });
+  }
+  function loadRef(idx) {
+    if (idx >= sources.length) { showRef(null); return; }
+    fetchJson(sources[idx].url).then(function (j) {
+      var p = sources[idx].parse(j);
+      if (!(p.rate > 0)) throw new Error("bad rate");
+      showRef(p);
+    }).catch(function () { loadRef(idx + 1); });
+  }
+  function showRef(p) {
+    var line = $("refline");
+    if (!p) {
+      refRate = null;
+      line.innerHTML = '<span>' + bi("参考汇率暂不可用", "Reference rate unavailable") + '</span>';
+      $("useRef").disabled = true;
+      return;
+    }
+    refRate = p.rate;
+    line.innerHTML = '<span>' + bi("实时参考汇率", "Live Reference Rate") + '：</span><span class="rv">1 USD = ' + p.rate.toFixed(4) + ' CNY</span>' +
+      (p.time ? '<span class="hint">' + bi("更新时间", "Updated") + ' ' + esc(p.time) + '</span>' : "");
+    $("useRef").disabled = false;
+  }
+
+
+  /* =====================================================================
+     Quote list, quotation generation (Excel / PDF) and history search
+     ===================================================================== */
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function dstr(ms) { var d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function dtstr(ms) { var d = new Date(ms); return dstr(ms) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function r4(x) { return Math.round(x * 1e4) / 1e4; }
+  function r2(x) { return Math.round(x * 100) / 100; }
+  var toastTimer;
+  function toast(html) {
+    var t = $("toast"); t.innerHTML = html; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+  }
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+
+  /* ---- storage: IndexedDB, with an in-memory fallback ---- */
+  var DB = null, mem = { items: [], quotes: [] };
+  function openDb() {
+    return new Promise(function (res) {
+      try {
+        var rq = indexedDB.open("export-quote-calc", 1);
+        rq.onupgradeneeded = function () {
+          rq.result.createObjectStore("items", { keyPath: "id" });
+          rq.result.createObjectStore("quotes", { keyPath: "id" });
+        };
+        rq.onsuccess = function () { res(rq.result); };
+        rq.onerror = rq.onblocked = function () { res(null); };
+      } catch (e) { res(null); }
+    });
+  }
+  function tx(name, mode, fn) {
+    return new Promise(function (res, rej) {
+      var t = DB.transaction(name, mode), r = fn(t.objectStore(name));
+      t.oncomplete = function () { res(r && r.result); };
+      t.onerror = t.onabort = function () { rej(t.error); };
+    });
+  }
+  var SERVER = null;                    // {dataDir} when served by server.py (records saved in a folder)
+  function api(method, path, body, raw) {
+    return fetch(path, { method: method, headers: raw || body === undefined ? {} : { "Content-Type": "application/json" },
+                         body: body === undefined ? undefined : raw ? body : JSON.stringify(body) })
+      .then(function (r) { if (!r.ok) throw new Error(method + " " + path + " → " + r.status); return r; });
+  }
+  var store = {
+    all: function (n) {
+      if (SERVER) return api("GET", "/api/" + n).then(function (r) { return r.json(); });
+      return DB ? tx(n, "readonly", function (s) { return s.getAll(); }) : Promise.resolve(mem[n].slice());
+    },
+    put: function (n, o) {
+      if (SERVER) {
+        if (n === "items") return api("PUT", "/api/items/" + o.id, o);
+        return Promise.all(o.files.map(function (f) { return f.blob ? api("PUT", "/api/files/" + encodeURIComponent(f.name), f.blob, true) : null; }))
+          .then(function () {
+            var meta = Object.assign({}, o, { files: o.files.map(function (f) { return { type: f.type, name: f.name }; }) });
+            return api("PUT", "/api/quotes/" + o.id, meta);
+          });
+      }
+      if (DB) return tx(n, "readwrite", function (s) { return s.put(o); });
+      mem[n] = mem[n].filter(function (x) { return x.id !== o.id; }); mem[n].push(o); return Promise.resolve();
+    },
+    del: function (n, id) {
+      if (SERVER) return api("DELETE", "/api/" + n + "/" + id);   // server also removes a quotation's files
+      if (DB) return tx(n, "readwrite", function (s) { return s.delete(id); });
+      mem[n] = mem[n].filter(function (x) { return x.id !== id; }); return Promise.resolve();
+    },
+    fileBlob: function (f) {
+      return f.blob ? Promise.resolve(f.blob) : api("GET", "/api/files/" + encodeURIComponent(f.name)).then(function (r) { return r.blob(); });
+    }
+  };
+  function showStorage() {
+    $("storeInfo").innerHTML = SERVER
+      ? bi("数据保存位置", "Data saved in") + ': <b>' + esc(SERVER.dataDir) + '</b>'
+      : bi("数据保存在本浏览器中（用 server.py 打开可保存到文件夹）", "Data is kept in this browser (open via server.py to save into a folder)");
+    $("folderCard").hidden = !SERVER;
+    $("folderNow").textContent = SERVER ? SERVER.dataDir : "";
+    $("bkHint").hidden = !!SERVER;
+  }
+
+  /* ---- tabs ---- */
+  function showTab(name) {
+    ["calc", "list", "hist"].forEach(function (t) { $("tab-" + t).hidden = t !== name; });
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === name);
+    });
+    if (name === "list") renderItems();
+    if (name === "hist") renderQuotes();
+    window.scrollTo(0, 0);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (b) {
+    b.addEventListener("click", function () { showTab(b.getAttribute("data-tab")); });
+  });
+
+  /* ---- quote list ---- */
+  var items = [], selected = {};
+  function loadItems() {
+    return store.all("items").then(function (a) {
+      items = a.sort(function (x, y) { return y.createdAt - x.createdAt; });
+      $("listCount").textContent = items.length;
+    });
+  }
+  $("addItem").addEventListener("click", function () {
+    var code = $("pcode").value.trim(), desc = $("pdesc").value.trim();
+    if (!last) return;
+    if (!code || !desc) {
+      $("error").innerHTML = bi("请先填写产品编号和英文描述。", "Enter the product code and English description first.");
+      return;
+    }
+    var snap = {};
+    inputIds.forEach(function (id) { snap[id] = $(id).value; });
+    snap.customs = readCustoms().filter(function (d) { return d.n.trim() !== "" || parseFloat(d.a) > 0; });
+    var unitFob = r4(last.fobUnit), unitCif = r4(last.cifUnit);
+    var it = {
+      id: uid(), createdAt: Date.now(), code: code, desc: desc, qty: last.qty,
+      fobUnit: unitFob, cifUnit: unitCif,
+      fobTotal: r2(unitFob * last.qty), cifTotal: r2(unitCif * last.qty),   // totals = rounded unit price x qty
+      image: null, imgW: 0, imgH: 0, snap: snap, baseManual: baseManual
+    };
+    store.put("items", it).then(loadItems).then(function () {
+      selected[it.id] = true;
+      toast(bi("已加入报价清单", "Added to Quote List") + " · " + esc(code));
+    }, function () { toast(bi("保存失败", "Save failed")); });
+  });
+
+  function renderItems() {
+    var box = $("items");
+    if (!items.length) {
+      box.innerHTML = '<div class="empty-msg">' + bi("清单为空。请在“计算器”中算好价格后点击“加入报价清单”。", "Empty. Calculate a price, then click “Add to Quote List”.") + '</div>';
+    } else {
+      box.innerHTML = items.map(function (it) {
+        return '<div class="item" data-id="' + it.id + '">' +
+          '<input type="checkbox" class="sel" aria-label="select" ' + (selected[it.id] ? "checked" : "") + '>' +
+          '<div><div class="code">' + esc(it.code) + '</div><div class="desc">' + esc(it.desc) + '</div>' +
+          '<div class="meta">' + it.qty.toLocaleString("en-US") + ' pcs · FOB $' + fmt(it.fobUnit, 4) + ' · CIF $' + fmt(it.cifUnit, 4) + ' · ' + dtstr(it.createdAt) + '</div>' +
+          '<div class="acts"><button type="button" class="act-img">' + (it.image ? bi("更换图片", "Change image") : bi("添加图片", "Add image")) + '</button>' +
+          (it.image ? '<button type="button" class="act-noimg">' + bi("移除图片", "Remove image") + '</button>' : "") +
+          '<button type="button" class="act-load">' + bi("载入计算器", "Load") + '</button>' +
+          '<button type="button" class="act-del">' + bi("删除", "Delete") + '</button></div></div>' +
+          (it.image ? '<img class="thumb" alt="" src="' + it.image + '">' : '<div class="thumb empty">' + bi("无图", "No image") + '</div>') +
+          '</div>';
+      }).join("");
+    }
+    updateSelCount();
+  }
+  function updateSelCount() {
+    var n = items.filter(function (i) { return selected[i.id]; }).length;
+    $("selCount").innerHTML = bi("已选", "Selected") + " " + n + " / " + items.length;
+  }
+  var pendingImg = null;
+  $("items").addEventListener("click", function (e) {
+    var row = e.target.closest(".item"); if (!row) return;
+    var id = row.getAttribute("data-id"), it = items.filter(function (x) { return x.id === id; })[0];
+    if (e.target.classList.contains("sel")) { selected[id] = e.target.checked; updateSelCount(); return; }
+    var b = e.target.closest("button"); if (!b || !it) return;
+    if (b.classList.contains("act-img")) { pendingImg = id; $("imgFile").value = ""; $("imgFile").click(); }
+    else if (b.classList.contains("act-noimg")) { it.image = null; it.imgW = it.imgH = 0; store.put("items", it).then(renderItems); }
+    else if (b.classList.contains("act-del")) {
+      if (confirm("删除这条报价？\nDelete this item?")) { delete selected[id]; store.del("items", id).then(loadItems).then(renderItems); }
+    } else if (b.classList.contains("act-load")) {
+      Object.keys(it.snap).forEach(function (k) { if (k !== "customs" && $(k)) $(k).value = it.snap[k]; });
+      var cl = it.snap.customs;
+      if (!cl) {                                   // items saved by the earlier fixed 3-row version
+        cl = [];
+        [1, 2, 3].forEach(function (n) { if (it.snap["c" + n + "n"]) cl.push({ n: it.snap["c" + n + "n"], a: it.snap["c" + n + "a"], c: it.snap["c" + n + "c"], b: it.snap["c" + n + "b"] }); });
+      }
+      setCustoms(cl);
+      baseManual = !!it.baseManual; update(); showTab("calc");
+    }
+  });
+  $("selAll").addEventListener("click", function () { items.forEach(function (i) { selected[i.id] = true; }); renderItems(); });
+  $("selNone").addEventListener("click", function () { selected = {}; renderItems(); });
+
+  /* ---- reference image: resized to <= 480px JPEG ---- */
+  function readImage(file) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onerror = rej;
+      fr.onload = function () {
+        var im = new Image();
+        im.onerror = rej;
+        im.onload = function () {
+          var sc = Math.min(1, 480 / Math.max(im.width, im.height));
+          var w = Math.max(1, Math.round(im.width * sc)), h = Math.max(1, Math.round(im.height * sc));
+          var c = document.createElement("canvas"); c.width = w; c.height = h;
+          var x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+          res({ data: c.toDataURL("image/jpeg", 0.82), w: w, h: h });
+        };
+        im.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  $("imgFile").addEventListener("change", function () {
+    var f = this.files && this.files[0], id = pendingImg; if (!f || !id) return;
+    var it = items.filter(function (x) { return x.id === id; })[0]; if (!it) return;
+    readImage(f).then(function (img) {
+      it.image = img.data; it.imgW = img.w; it.imgH = img.h;
+      return store.put("items", it);
+    }).then(renderItems, function () { toast(bi("图片读取失败", "Could not read the image")); });
+  });
+
+  /* ---- quotation settings (remembered) ---- */
+  var qFields = ["qSeller", "qCustomer", "qValid", "qLoad", "qDest", "qPay", "qTerms", "qRemarks"];
+  qFields.forEach(function (id) { var v = lsGet("qc_" + id); if (v !== null) $(id).value = v; });
+  function nextQuoteNo() {
+    var day = dstr(Date.now()).replace(/-/g, ""), n = 1;
+    return store.all("quotes").then(function (a) {
+      a.forEach(function (q) { if (q.quoteNo && q.quoteNo.indexOf("QT-" + day) === 0) n++; });
+      return "QT-" + day + "-" + (n < 10 ? "00" : n < 100 ? "0" : "") + n;
+    });
+  }
+  function refreshQuoteNo() { nextQuoteNo().then(function (no) { $("qNo").value = no; }); }
+
+  /* ---- quotation document model ---- */
+  function buildDoc() {
+    var now = Date.now(), days = parseInt($("qValid").value, 10) || 30;
+    var lines = items.filter(function (i) { return selected[i.id]; }).sort(function (a, b) { return a.createdAt - b.createdAt; });
+    var useImg = $("qImg").checked;
+    return {
+      quoteNo: $("qNo").value.trim(), createdAt: now, date: dstr(now), validUntil: dstr(now + days * 864e5),
+      seller: $("qSeller").value.trim(), customer: $("qCustomer").value.trim(),
+      loadPort: $("qLoad").value.trim(), destPort: $("qDest").value.trim(), payment: $("qPay").value.trim(),
+      remarks: $("qRemarks").value.trim(), terms: $("qTerms").value,
+      showImages: useImg && lines.some(function (l) { return l.image; }),
+      lines: lines.map(function (l) {
+        return { code: l.code, desc: l.desc, qty: l.qty, fobUnit: l.fobUnit, cifUnit: l.cifUnit, fobTotal: l.fobTotal, cifTotal: l.cifTotal,
+                 image: useImg ? l.image : null, imgW: l.imgW, imgH: l.imgH };
+      })
+    };
+  }
+  function termNotes(d) {
+    var n = ["All prices are in US dollars (USD)."];
+    if (d.terms !== "CIF") n.push("FOB prices: Incoterms 2020 FOB" + (d.loadPort ? " " + d.loadPort : "") + ".");
+    if (d.terms !== "FOB") n.push("CIF prices include freight and insurance to" + (d.destPort ? " " + d.destPort : " the port of destination") + " (Incoterms 2020 CIF).");
+    n.push("This quotation is valid until " + d.validUntil + ".");
+    if (d.remarks) n.push(d.remarks);
+    return n;
+  }
+  function metaRows(d) {
+    var m = [["Quotation No.", d.quoteNo], ["Date", d.date], ["Valid Until", d.validUntil]];
+    if (d.customer) m.push(["To", d.customer]);
+    if (d.loadPort) m.push(["Port of Loading", d.loadPort]);
+    if (d.destPort) m.push(["Port of Destination", d.destPort]);
+    if (d.payment) m.push(["Payment Terms", d.payment]);
+    m.push(["Currency", "USD"]);
+    return m;
+  }
+  function priceCols(d) {
+    var c = [];
+    if (d.terms !== "CIF") c.push({ k: "fob", h: "FOB Unit Price (USD)" }, { k: "fobT", h: "FOB Total (USD)" });
+    if (d.terms !== "FOB") c.push({ k: "cif", h: "CIF Unit Price (USD)" }, { k: "cifT", h: "CIF Total (USD)" });
+    return c;
+  }
+  function priceVal(l, k) { return { fob: l.fobUnit, fobT: l.fobTotal, cif: l.cifUnit, cifT: l.cifTotal }[k]; }
+  function fitBox(w, h, bw, bh) { var s = Math.min(bw / (w || bw), bh / (h || bh)); return { w: (w || bw) * s, h: (h || bh) * s }; }
+
+  /* ---- Excel ---- */
+  function colLetter(n) { var s = ""; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; } return s; }
+  function buildXlsx(d) {
+    var wb = new ExcelJS.Workbook();
+    wb.creator = d.seller || "Quotation";
+    var ws = wb.addWorksheet("Quotation", { pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9,
+      margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.7, header: 0.3, footer: 0.3 } } });
+    ws.headerFooter.oddFooter = "&L" + d.quoteNo.replace(/&/g, "&&") + "&RPage &P / &N";
+    var pc = priceCols(d), img = d.showImages;
+    var cols = [{ w: 6 }];
+    if (img) cols.push({ w: 16 });
+    cols.push({ w: 18 }, { w: 42 }, { w: 10 });
+    pc.forEach(function () { cols.push({ w: 18 }); });
+    var n = cols.length, descCol = img ? 4 : 3;
+    cols.forEach(function (c, i) { ws.getColumn(i + 1).width = c.w; });
+    var navy = "FF1F3A5F", thin = { style: "thin", color: { argb: "FFBFC7D5" } }, box = { top: thin, left: thin, bottom: thin, right: thin };
+    var r = 1;
+
+    if (d.seller) { ws.mergeCells(r, 1, r, n); ws.getCell(r, 1).value = d.seller; ws.getCell(r, 1).font = { bold: true, size: 14 }; r++; }
+    ws.mergeCells(r, 1, r, n); var t = ws.getCell(r, 1); t.value = "QUOTATION";
+    t.font = { bold: true, size: 20, color: { argb: navy } }; t.alignment = { horizontal: "center" }; ws.getRow(r).height = 30; r += 2;
+    metaRows(d).forEach(function (m) {
+      ws.mergeCells(r, 1, r, 2); ws.mergeCells(r, 3, r, n);
+      ws.getCell(r, 1).value = m[0] + ":"; ws.getCell(r, 1).font = { bold: true };
+      ws.getCell(r, 3).value = m[1]; ws.getCell(r, 3).alignment = { horizontal: "left" }; r++;
+    });
+    r++;
+    var heads = ["No."]; if (img) heads.push("Picture"); heads.push("Product Code", "Description", "Qty (pcs)");
+    pc.forEach(function (c) { heads.push(c.h); });
+    heads.forEach(function (h, i) {
+      var c = ws.getCell(r, i + 1); c.value = h;
+      c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
+      c.alignment = { horizontal: "center", vertical: "middle", wrapText: true }; c.border = box;
+    });
+    ws.getRow(r).height = 32;
+    ws.pageSetup.printTitlesRow = r + ":" + r;      // repeat the table header on every printed page
+    r++;
+    var first = r, qtyCol = descCol + 1;
+
+    d.lines.forEach(function (l, idx) {
+      var vals = [idx + 1]; if (img) vals.push(""); vals.push(l.code, l.desc, l.qty);
+      var row = ws.getRow(r);
+      vals.forEach(function (v, i) { row.getCell(i + 1).value = v; });
+      pc.forEach(function (c, i) {
+        var ci = qtyCol + 1 + i, cell = row.getCell(ci);
+        if (c.k === "fobT" || c.k === "cifT") {
+          var unitL = colLetter(ci - 1), qL = colLetter(qtyCol);
+          cell.value = { formula: unitL + r + "*" + qL + r, result: priceVal(l, c.k) };
+          cell.numFmt = '"$"#,##0.00';
+        } else { cell.value = priceVal(l, c.k); cell.numFmt = '"$"#,##0.0000'; }
+      });
+      row.getCell(qtyCol).numFmt = "#,##0";
+      var h = Math.max(22, Math.ceil(l.desc.length / 40) * 15 + 6);
+      if (img && l.image) {
+        h = Math.max(h, 78);
+        var id = wb.addImage({ base64: l.image.replace(/^data:image\/\w+;base64,/, ""), extension: "jpeg" });
+        var f = fitBox(l.imgW, l.imgH, 88, 88);
+        ws.addImage(id, { tl: { col: 1.05, row: r - 1 + 0.08 }, ext: { width: f.w, height: f.h }, editAs: "oneCell" });
+      }
+      row.height = h;
+      for (var c2 = 1; c2 <= n; c2++) {
+        var cc = row.getCell(c2); cc.border = box;
+        cc.alignment = { vertical: "middle", horizontal: c2 === descCol || c2 === descCol - 1 ? "left" : "center", wrapText: true };
+      }
+      r++;
+    });
+    var lastR = r - 1;
+    // totals
+    ws.mergeCells(r, 1, r, qtyCol);
+    ws.getCell(r, 1).value = "Total"; ws.getCell(r, 1).alignment = { horizontal: "right" };
+    pc.forEach(function (c, i) {
+      var ci = qtyCol + 1 + i, cell = ws.getCell(r, ci);
+      if (c.k === "fobT" || c.k === "cifT") {
+        var sum = d.lines.reduce(function (a, l) { return a + priceVal(l, c.k); }, 0);
+        cell.value = { formula: "SUM(" + colLetter(ci) + first + ":" + colLetter(ci) + lastR + ")", result: r2(sum) };
+        cell.numFmt = '"$"#,##0.00';
+      }
+    });
+    for (var c3 = 1; c3 <= n; c3++) {
+      var tc = ws.getCell(r, c3); tc.font = { bold: true }; tc.border = box;
+      tc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF0FB" } }; tc.alignment = Object.assign({ vertical: "middle" }, tc.alignment || {});
+    }
+    ws.getRow(r).height = 22; r += 2;
+    ws.mergeCells(r, 1, r, n); ws.getCell(r, 1).value = "Terms & Notes"; ws.getCell(r, 1).font = { bold: true }; r++;
+    termNotes(d).forEach(function (line, i) {
+      ws.mergeCells(r, 1, r, n); var c = ws.getCell(r, 1); c.value = (i + 1) + ". " + line;
+      c.alignment = { wrapText: true, vertical: "top" }; ws.getRow(r).height = Math.max(18, Math.ceil(line.length / 110) * 16); r++;
+    });
+    return wb.xlsx.writeBuffer().then(function (buf) {
+      return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    });
+  }
+
+  /* ---- PDF (jsPDF's built-in fonts are Latin-only) ---- */
+  var nonLatin = false;
+  function lat(s) { s = String(s == null ? "" : s); if (/[^\u0000-ÿ]/.test(s)) { nonLatin = true; s = s.replace(/[^\u0000-ÿ]/g, "?"); } return s; }
+  function buildPdf(d) {
+    var J = window.jspdf.jsPDF, doc = new J({ unit: "mm", format: "a4" });
+    var W = 210, M = 10, y = 14, navy = [31, 58, 95];
+    if (d.seller) { doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(lat(d.seller), M, y); y += 8; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(navy[0], navy[1], navy[2]);
+    doc.text("QUOTATION", W / 2, y + 2, { align: "center" }); doc.setTextColor(0); y += 12;
+    doc.setFontSize(9);
+    metaRows(d).forEach(function (m) {
+      doc.setFont("helvetica", "bold"); doc.text(m[0] + ":", M, y);
+      doc.setFont("helvetica", "normal");
+      var txt = doc.splitTextToSize(lat(m[1]), W - M * 2 - 38);
+      doc.text(txt, M + 38, y); y += 5 * txt.length;
+    });
+    y += 3;
+    var pc = priceCols(d), img = d.showImages, head = ["No."], styles = {}, ci = 0;
+    function addCol(h, w, align) { head.push(h); styles[ci] = { cellWidth: w, halign: align || "center" }; ci++; }
+    styles[ci++] = { cellWidth: 10, halign: "center" };
+    var colIdx = {};
+    if (img) { colIdx.img = ci; head.splice(1, 0, "Picture"); styles[ci++] = { cellWidth: 20, halign: "center" }; }
+    head.push("Product Code"); styles[ci++] = { cellWidth: 22, halign: "left" };
+    head.push("Description"); styles[ci++] = { halign: "left" };
+    head.push("Qty (pcs)"); styles[ci++] = { cellWidth: 14, halign: "right" };
+    pc.forEach(function (c) { head.push(c.h); styles[ci++] = { cellWidth: c.k.slice(-1) === "T" ? 22 : 20, halign: "right" }; });
+    var body = d.lines.map(function (l, i) {
+      var row = [String(i + 1)]; if (img) row.push("");
+      row.push(lat(l.code), lat(l.desc), l.qty.toLocaleString("en-US"));
+      pc.forEach(function (c) { var v = priceVal(l, c.k); row.push("$" + fmt(v, c.k.slice(-1) === "T" ? 2 : 4)); });
+      return row;
+    });
+    var totalRow = [{ content: "Total", colSpan: head.length - pc.length, styles: { halign: "right", fontStyle: "bold" } }];
+    pc.forEach(function (c) {
+      var isT = c.k.slice(-1) === "T";
+      totalRow.push({ content: isT ? "$" + fmt(r2(d.lines.reduce(function (a, l) { return a + priceVal(l, c.k); }, 0)), 2) : "", styles: { fontStyle: "bold" } });
+    });
+    doc.autoTable({
+      startY: y, head: [head], body: body, foot: [totalRow], columnStyles: styles,
+      margin: { left: M, right: M, top: 16, bottom: 16 }, rowPageBreak: "avoid", showHead: "everyPage",
+      didDrawPage: function (h) {
+        if (h.pageNumber > 1) {                               // running header on continuation pages
+          doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(120);
+          doc.text((d.seller ? lat(d.seller) + "   " : "") + "Quotation " + lat(d.quoteNo) + " (continued)", M, 10); doc.setTextColor(0);
+        }
+      },
+      styles: { font: "helvetica", fontSize: 8, cellPadding: 2, valign: "middle", lineColor: [191, 199, 213], lineWidth: 0.2, overflow: "linebreak" },
+      headStyles: { fillColor: navy, textColor: 255, halign: "center", fontStyle: "bold" },
+      footStyles: { fillColor: [234, 240, 251], textColor: 0, lineColor: [191, 199, 213], lineWidth: 0.2 },
+      showFoot: "lastPage",
+      didParseCell: function (h) {
+        if (img && h.section === "body" && h.column.index === colIdx.img && d.lines[h.row.index].image) h.cell.styles.minCellHeight = 24;
+      },
+      didDrawCell: function (h) {
+        if (img && h.section === "body" && h.column.index === colIdx.img) {
+          var l = d.lines[h.row.index]; if (!l.image) return;
+          var f = fitBox(l.imgW, l.imgH, h.cell.width - 3, h.cell.height - 3);
+          doc.addImage(l.image, "JPEG", h.cell.x + (h.cell.width - f.w) / 2, h.cell.y + (h.cell.height - f.h) / 2, f.w, f.h);
+        }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 8;
+    var notes = termNotes(d).map(function (t, i) { return doc.splitTextToSize((i + 1) + ". " + lat(t), W - M * 2); });
+    var need = 6 + notes.reduce(function (a, n) { return a + n.length * 4.4; }, 0);
+    if (y + need > 281) { doc.addPage(); y = 18; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Terms & Notes", M, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+    notes.forEach(function (n) { doc.text(n, M, y); y += n.length * 4.4; });
+    var pages = doc.getNumberOfPages();
+    for (var p = 1; p <= pages; p++) {
+      doc.setPage(p); doc.setFontSize(8); doc.setTextColor(120);
+      doc.text(lat(d.quoteNo) + "   Page " + p + " / " + pages, W / 2, 291, { align: "center" }); doc.setTextColor(0);
+    }
+    return doc.output("blob");
+  }
+
+  /* ---- generate ---- */
+  function download(blob, name) {
+    var a = document.createElement("a"), u = URL.createObjectURL(blob);
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+  }
+  function safeName(s) { return s.replace(/[^\w.\-]+/g, "_"); }
+  var generating = false;
+  $("generate").addEventListener("click", function () {
+    var d = buildDoc(), err = [], fmts = [];
+    if ($("fXlsx").checked) fmts.push("xlsx");
+    if ($("fPdf").checked) fmts.push("pdf");
+    if (!d.lines.length) err.push(bi("请至少勾选一条报价。", "Select at least one item."));
+    if (!d.quoteNo) err.push(bi("请填写报价单号。", "Enter a quotation number."));
+    if (!fmts.length) err.push(bi("请至少选择一种导出格式。", "Choose at least one output format."));
+    $("genError").innerHTML = err.join("<br>");
+    if (err.length || generating) return;
+    generating = true; $("generate").disabled = true;
+    qFields.forEach(function (id) { lsSet("qc_" + id, $(id).value); });
+    nonLatin = false;
+    var base, files = [];
+    store.all("quotes").then(function (existing) {          // never overwrite an earlier quotation's files
+      var used = {};
+      existing.forEach(function (q) { q.files.forEach(function (f) { used[f.name] = true; }); });
+      var root = "Quotation_" + safeName(d.quoteNo), n = 1;
+      base = root;
+      while (fmts.some(function (f) { return used[base + "." + f]; })) base = root + "_" + (++n);
+      return Promise.all(fmts.map(function (f) {
+        return Promise.resolve().then(function () { return f === "xlsx" ? buildXlsx(d) : buildPdf(d); })
+          .then(function (blob) { files.push({ type: f, name: base + "." + f, blob: blob }); });
+      }));
+    }).then(function () {
+      var rec = {
+        id: uid(), createdAt: d.createdAt, quoteNo: d.quoteNo, customer: d.customer, seller: d.seller, terms: d.terms,
+        items: d.lines.map(function (l) { return { code: l.code, desc: l.desc, qty: l.qty, fobUnit: l.fobUnit, cifUnit: l.cifUnit, fobTotal: l.fobTotal, cifTotal: l.cifTotal, hasImage: !!l.image }; }),
+        files: files
+      };
+      return store.put("quotes", rec).then(function () {
+        files.forEach(function (f) { download(f.blob, f.name); });
+        toast(bi("已生成并保存到历史记录", "Generated and saved to History") + (nonLatin && fmts.indexOf("pdf") >= 0 ? "<br>" + bi("PDF 仅支持英文字符，其他字符显示为“?”。", "PDF supports Latin characters only; others show as “?”.") : ""));
+        refreshQuoteNo();
+      });
+    }).catch(function (e) {
+      $("genError").innerHTML = bi("生成失败：", "Generation failed: ") + esc(e && e.message || e);
+    }).then(function () { generating = false; $("generate").disabled = false; });
+  });
+
+  /* ---- history + search ---- */
+  var quotes = [];
+  function numOrNull(id) { var v = parseFloat($(id).value); return isNaN(v) ? null : v; }
+  function matches(q, f) {
+    var L = q.items;
+    if (f.code && !L.some(function (l) { return l.code.toLowerCase().indexOf(f.code) >= 0; })) return false;
+    if (f.desc && !L.some(function (l) { return l.desc.toLowerCase().indexOf(f.desc) >= 0; })) return false;
+    if (f.from !== null && q.createdAt < f.from) return false;
+    if (f.to !== null && q.createdAt >= f.to + 864e5) return false;
+    if (f.min !== null || f.max !== null) {
+      var key = f.basis === "cif" ? "cifUnit" : "fobUnit";
+      if (!L.some(function (l) { return (f.min === null || l[key] >= f.min) && (f.max === null || l[key] <= f.max); })) return false;
+    }
+    return true;
+  }
+  function dateMs(id) { var v = $(id).value; return v ? new Date(v + "T00:00:00").getTime() : null; }
+  function renderQuotes() {
+    store.all("quotes").then(function (a) {
+      quotes = a.sort(function (x, y) { return y.createdAt - x.createdAt; });
+      var f = { code: $("sCode").value.trim().toLowerCase(), desc: $("sDesc").value.trim().toLowerCase(),
+                from: dateMs("sFrom"), to: dateMs("sTo"), basis: $("sBasis").value, min: numOrNull("sMin"), max: numOrNull("sMax") };
+      var hit = quotes.filter(function (q) { return matches(q, f); });
+      $("sCount").innerHTML = bi("共", "Found") + " " + hit.length + " / " + quotes.length;
+      $("quotes").innerHTML = hit.length ? hit.map(function (q) {
+        return '<div class="qcard" data-id="' + q.id + '"><div class="qh"><span class="qn">' + esc(q.quoteNo) + '</span><span class="hint">' + dtstr(q.createdAt) + '</span></div>' +
+          (q.customer ? '<div class="hint">' + esc(q.customer) + '</div>' : "") +
+          '<ul>' + q.items.map(function (l) {
+            return '<li><b>' + esc(l.code) + '</b> — ' + esc(l.desc) + ' <span class="hint">(' + l.qty.toLocaleString("en-US") + ' pcs, FOB $' + fmt(l.fobUnit, 4) + ', CIF $' + fmt(l.cifUnit, 4) + ')</span></li>';
+          }).join("") + '</ul><div class="btnrow">' +
+          q.files.map(function (fl) { return '<button type="button" class="dl" data-name="' + esc(fl.name) + '">' + bi("下载", "Download") + ' ' + (fl.type === "xlsx" ? "Excel" : "PDF") + '</button>'; }).join("") +
+          '<button type="button" class="delq">' + bi("删除", "Delete") + '</button></div></div>';
+      }).join("") : '<div class="empty-msg">' + bi(quotes.length ? "没有符合条件的报价单。" : "还没有生成过报价单。", quotes.length ? "No quotations match your search." : "No quotations generated yet.") + '</div>';
+    });
+  }
+  ["sCode", "sDesc", "sFrom", "sTo", "sBasis", "sMin", "sMax"].forEach(function (id) {
+    $(id).addEventListener("input", renderQuotes); $(id).addEventListener("change", renderQuotes);
+  });
+  $("sReset").addEventListener("click", function () {
+    ["sCode", "sDesc", "sFrom", "sTo", "sMin", "sMax"].forEach(function (id) { $(id).value = ""; });
+    $("sBasis").value = "fob"; renderQuotes();
+  });
+  $("quotes").addEventListener("click", function (e) {
+    var card = e.target.closest(".qcard"), b = e.target.closest("button"); if (!card || !b) return;
+    var q = quotes.filter(function (x) { return x.id === card.getAttribute("data-id"); })[0]; if (!q) return;
+    if (b.classList.contains("dl")) {
+      var fl = q.files.filter(function (x) { return x.name === b.getAttribute("data-name"); })[0];
+      if (fl) store.fileBlob(fl).then(function (bl) { download(bl, fl.name); }, function () { toast(bi("文件读取失败", "Could not read the file")); });
+    } else if (b.classList.contains("delq")) {
+      if (confirm("删除这份报价单及其文件？\nDelete this quotation and its files?")) store.del("quotes", q.id).then(function () { renderQuotes(); refreshQuoteNo(); });
+    }
+  });
+
+  /* ---- backup ---- */
+  function blobToData(b) { return new Promise(function (res, rej) { var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(b); }); }
+  $("bkExport").addEventListener("click", function () {
+    Promise.all([store.all("items"), store.all("quotes")]).then(function (r) {
+      return Promise.all(r[1].map(function (q) {
+        return Promise.all(q.files.map(function (f) { return store.fileBlob(f).then(blobToData).then(function (d) { return { type: f.type, name: f.name, data: d }; }); }))
+          .then(function (files) { return Object.assign({}, q, { files: files }); });
+      })).then(function (quotesOut) {
+        var json = JSON.stringify({ app: "export-quote-calculator", version: 1, items: r[0], quotes: quotesOut });
+        download(new Blob([json], { type: "application/json" }), "quote-backup-" + dstr(Date.now()) + ".json");
+      });
+    }).catch(function () { toast(bi("导出失败", "Export failed")); });
+  });
+  $("bkImport").addEventListener("click", function () { $("bkFile").value = ""; $("bkFile").click(); });
+  $("bkFile").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      var j;
+      try { j = JSON.parse(fr.result); if (j.app !== "export-quote-calculator") throw 0; } catch (e) { toast(bi("不是有效的备份文件", "Not a valid backup file")); return; }
+      var jobs = (j.items || []).map(function (it) { return store.put("items", it); });
+      (j.quotes || []).forEach(function (q) {
+        jobs.push(Promise.all(q.files.map(function (fl) { return fetch(fl.data).then(function (r) { return r.blob(); }).then(function (b) { return { type: fl.type, name: fl.name, blob: b }; }); }))
+          .then(function (files) { return store.put("quotes", Object.assign({}, q, { files: files })); }));
+      });
+      Promise.all(jobs).then(loadItems).then(function () { renderQuotes(); renderItems(); refreshQuoteNo(); toast(bi("已导入", "Imported")); },
+        function () { toast(bi("导入失败", "Import failed")); });
+    };
+    fr.readAsText(f);
+  });
+
+  /* ---- change data folder (server mode) ---- */
+  $("folderSet").addEventListener("click", function () {
+    var v = $("folderNew").value.trim();
+    if (!v) return;
+    if (!confirm("改用新文件夹？已有数据不会自动搬移。\nSwitch to this folder? Existing data is not moved.")) return;
+    api("POST", "/api/config", { dataDir: v }).then(function (r) { return r.json(); }).then(function (j) {
+      SERVER = j; $("folderNew").value = ""; showStorage();
+      return loadItems();
+    }).then(function () { selected = {}; renderItems(); renderQuotes(); refreshQuoteNo(); toast(bi("已切换文件夹", "Folder switched")); },
+      function () { toast(bi("无法使用该文件夹（需要有效且可写的绝对路径）", "Cannot use that folder (needs a valid, writable absolute path)")); });
+  });
+
+  /* ---- init storage ---- */
+  function detectServer() {
+    if (location.protocol.indexOf("http") !== 0) return Promise.resolve(null);
+    return fetch("/api/info").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  }
+  detectServer().then(function (info) {
+    SERVER = info;
+    return SERVER ? null : openDb();
+  }).then(function (db) {
+    DB = db;
+    if (!SERVER && !DB) { $("warn").hidden = false; $("warn").innerHTML = bi("无法使用浏览器本地存储：刷新页面后数据会丢失。", "Browser storage is unavailable: data will be lost on refresh."); }
+    try { if (!SERVER && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignore */ }
+    showStorage();
+    return loadItems();
+  }).then(function () { refreshQuoteNo(); renderItems(); }, function () {
+    $("warn").hidden = false; $("warn").innerHTML = bi("读取数据失败，请检查 server.py 是否仍在运行。", "Could not read data; is server.py still running?");
+  });
+
+  update();
+  try { loadRef(0); } catch (e) { showRef(null); }
+})();
+</script>
+</body>
+</html>
