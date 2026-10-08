@@ -5,7 +5,15 @@
   (optional reference images). Long lists paginate: the table header repeats on every page.
 - **History** – search generated quotations by product code, description, quote date or unit-price range.
 
-## Run (saves everything into a folder you choose)
+## Windows: double-click `QuoteCalculator.exe` (no Python needed)
+
+Download `QuoteCalculator.exe` from the **latest** release
+(https://github.com/usgeat-arch-sz/test/releases/tag/latest), put it in its own folder and double-click it.
+A black window opens (keep it open while using; close it to quit) and the calculator opens in your browser.
+Records and generated files are saved in a `报价数据` folder next to the .exe.
+The exe is built automatically by `.github/workflows/build-exe.yml` (PyInstaller).
+
+## Run with Python (saves everything into a folder you choose)
 
 ```
 python server.py                        # opens http://127.0.0.1:8765/
