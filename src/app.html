@@ -135,6 +135,10 @@
   .tab.active .en { color: inherit; }
   button.primary .en { color: inherit; opacity: .85; }
   .field.chk { flex-direction: row; align-items: flex-start; }
+  :root { --carry: #fff6dc; --carry-b: #e3b341; }
+  @media (prefers-color-scheme: dark) { :root { --carry: #3a3217; --carry-b: #a8801f; } }
+  .field input.plain.carried, .field textarea.carried { background: var(--carry); border-color: var(--carry-b); }
+  .tag.carry { background: var(--carry); color: var(--text); border: 1px solid var(--carry-b); }
   .badge { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 0 7px; font-size: .75rem; margin-left: 2px; }
   .tab.active .badge { background: #fff3; color: #fff; }
   [hidden] { display: none !important; }
@@ -186,15 +190,18 @@
     <!-- ============ INPUTS ============ -->
     <div>
       <section class="card">
-        <h2>产品信息 <span class="en">Product Info</span></h2>
+        <h2>产品信息 <span class="en">Product Info</span>
+          <button type="button" id="clearProduct" style="float:right;padding:2px 10px;font-size:.78rem">清空编号和描述 <span class="en">Clear</span></button></h2>
         <div class="fields">
           <div class="field full">
-            <label for="pcode">产品编号 <span class="en">Product Code</span></label>
+            <label for="pcode">产品编号 <span class="en">Product Code</span><span class="tag carry" hidden>沿用上一条，请修改 <span class="en">Kept from last item - edit it</span></span></label>
             <input id="pcode" class="plain" type="text" maxlength="40" placeholder="例如 A-1001 e.g. A-1001" autocomplete="off">
+            <div class="hint">例如 A-1001。加入清单后内容会保留，方便只改不同的地方。 <span class="en">e.g. A-1001. Everything is kept after you add an item, so you only change what differs.</span></div>
           </div>
           <div class="field full">
-            <label for="pdesc">产品描述（英文，用于报价单） <span class="en">Description (English, shown on the quotation)</span></label>
+            <label for="pdesc">产品描述（英文，用于报价单） <span class="en">Description (English, shown on the quotation)</span><span class="tag carry" hidden>沿用上一条，请修改 <span class="en">Kept from last item - edit it</span></span></label>
             <textarea id="pdesc" maxlength="300" placeholder="e.g. Stainless steel vacuum flask, 500ml"></textarea>
+            <div class="hint">例如 Stainless steel vacuum flask, 500ml, double wall</div>
           </div>
         </div>
       </section>
@@ -702,6 +709,7 @@
   $("reset").addEventListener("click", function () {
     inputIds.forEach(function (id) { $(id).value = defaults[id]; });
     setCustoms([]);
+    markCarried(false);
     baseManual = false;
     update();
   });
@@ -891,12 +899,31 @@
       $("listCount").textContent = items.length;
     });
   }
+  /* keep the last item's content in the form, but flag code/description as "carried over" until edited */
+  function markCarried(on) {
+    ["pcode", "pdesc"].forEach(function (id) {
+      $(id).classList.toggle("carried", on);
+      $(id).parentNode.querySelector(".tag.carry").hidden = !on;
+    });
+  }
+  ["pcode", "pdesc"].forEach(function (id) {
+    $(id).addEventListener("input", function () {
+      $(id).classList.remove("carried"); $(id).parentNode.querySelector(".tag.carry").hidden = true;
+    });
+  });
+  $("clearProduct").addEventListener("click", function () {
+    $("pcode").value = ""; $("pdesc").value = ""; markCarried(false); update(); $("pcode").focus();
+  });
   $("addItem").addEventListener("click", function () {
     var code = $("pcode").value.trim(), desc = $("pdesc").value.trim();
     if (!last) return;
     if (!code || !desc) {
       $("error").innerHTML = bi("请先填写产品编号和英文描述。", "Enter the product code and English description first.");
       return;
+    }
+    var dup = items.some(function (i) { return i.code.toLowerCase() === code.toLowerCase(); });
+    if (dup && !confirm("清单里已有相同的产品编号 " + code + "。仍要再加入一条吗？\n The list already has product code " + code + ". Add another one anyway?")) {
+      $("pcode").focus(); $("pcode").select(); return;
     }
     var snap = {};
     inputIds.forEach(function (id) { snap[id] = $(id).value; });
@@ -910,7 +937,9 @@
     };
     store.put("items", it).then(loadItems).then(function () {
       selected[it.id] = true;
-      toast(bi("已加入报价清单", "Added to Quote List") + " · " + esc(code));
+      markCarried(true);
+      toast(bi("已加入报价清单；内容已保留，修改编号等后可继续加入下一条", "Added. The form keeps its content: change what differs, then add the next one") + " · " + esc(code));
+      $("pcode").focus(); $("pcode").select();
     }, function () { toast(bi("保存失败", "Save failed")); });
   });
 
@@ -956,6 +985,7 @@
         [1, 2, 3].forEach(function (n) { if (it.snap["c" + n + "n"]) cl.push({ n: it.snap["c" + n + "n"], a: it.snap["c" + n + "a"], c: it.snap["c" + n + "c"], b: it.snap["c" + n + "b"] }); });
       }
       setCustoms(cl);
+      markCarried(true);
       baseManual = !!it.baseManual; update(); showTab("calc");
     }
   });
